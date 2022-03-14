@@ -1,3 +1,4 @@
+from cProfile import run
 from multiprocessing.connection import wait
 import utils,os
 import cv2
@@ -28,6 +29,7 @@ def show_boxes(input_video, gt_rect, predictions):
     frame_n = 0
     wait_time = 1
     gt_frame_keys, pred_frame_keys = list(gt_rect.keys()), list(predictions.keys())
+    mIoU = []
 
     while(True):
         ret, img = cap.read()
@@ -50,10 +52,29 @@ def show_boxes(input_video, gt_rect, predictions):
                 break
             elif k == ord('p'):
                 wait_time = int(not(bool(wait_time)))
+        
+        gt_bboxes = gt[frame_n]
+        det_bboxes = predictions[frame_n]
+        mIoU.append(utils.get_frame_iou(gt_bboxes, det_bboxes))
+
         frame_n+=1
+    print('Mean IoU over time for',run_name,':',np.mean(mIoU))
     
+    plt.figure()
+    plt.plot(mIoU, c="blue")
+    plt.xlim([0, len(gt_frame_keys)])
+    plt.ylim([0, 1])
+    plt.title("Mean IoU over time")
+    plt.xlabel('Frame number')
+    plt.ylabel('Mean IoU')
+    plt.title('Mean IoU over time')
+    plt.tight_layout()
+    plt.savefig(EXPERIMENTS_FOLDER+'/'+str(run_name)+'/'+str(run_name)+'.png')
+
     cap.release()
     cv2.destroyAllWindows()
+
+    return np.mean(mIoU)
 
 def read_annotations(annotations, predictions_folder):
     # gt_rect format: 
@@ -69,6 +90,18 @@ def read_annotations(annotations, predictions_folder):
     predictions = {model_name: utils.parse_predictions_rects(os.path.join(predictions_folder, PREDICTIONS_MODELS[model_name])) for model_name in list(PREDICTIONS_MODELS.keys())}
     
     return gt_rect, predictions
+
+def save_reranking_mAP(reranking_mAP, mIoU, run_name):
+    if not os.path.exists(EXPERIMENTS_FOLDER):
+        os.mkdir(EXPERIMENTS_FOLDER)
+    if not os.path.exists(EXPERIMENTS_FOLDER+"/"+str(run_name)):
+        os.mkdir(EXPERIMENTS_FOLDER+"/"+str(run_name))
+    name = f"{EXPERIMENTS_FOLDER}/{str(run_name)}/{run_name}.txt"
+    
+    with open(name,'w') as f:
+        f.writelines("mAP = "+str(reranking_mAP))
+        f.writelines("\nmIoU = "+str(mIoU))
+
 
 def show_iou_over_time_and_compute(video_path, gt, pred, run_name, save=True):
     print("Computing mIoU")
@@ -146,7 +179,7 @@ def parse_arguments():
                         help="annotations")
     parser.add_argument("-s",
                         dest="save_plot",
-                        required=True,
+                        required=False,
                         default=False,
                         type=bool,
                         help="Save mIoU plot")
@@ -171,18 +204,28 @@ if __name__ == "__main__":
     # print("MaskRCNN mAP 0.5:", voc_eval(predictions["mask_rcnn"][1], gt, ovthresh=0.5))
     # print("YoloV3 mAP 0.5:", voc_eval(predictions["yolov3"][1], gt, ovthresh=0.5))
     # print("SSD512 mAP 0.5:", voc_eval(predictions["ssd512"][1], gt, ovthresh=0.5))
+
+    if not os.path.exists(EXPERIMENTS_FOLDER):
+        os.mkdir(EXPERIMENTS_FOLDER)
+    if not os.path.exists(EXPERIMENTS_FOLDER+"/"+str(run_name)):
+        os.mkdir(EXPERIMENTS_FOLDER+"/"+str(run_name))
     
     # Evaluating noisy AP
     rank = 10
-    frame_ids, tot_boxes, confidences = generate_noisy_bboxes(gt, rank=rank, std_coords=10, resizing_factor=1, prob_drop_detections=0, prob_new_detections=0, dropout = 0)
+    frame_ids, tot_boxes, confidences = generate_noisy_bboxes(gt, rank=rank, std_coords=5, resizing_factor=1, prob_drop_detections=0, prob_new_detections=0, dropout = 0)
     preds_formatted = utils.predictions_to_gt_format(frame_ids, tot_boxes)
-    print("Default reranking mAP:", np.mean(np.array([voc_eval([frame_ids, tot_boxes, confidences[i]], gt, ovthresh=0.5) for i in range(rank)])))
-    show_boxes(input_video, gt, preds_formatted)
+
+    reranking_mAP = np.mean(np.array([voc_eval([frame_ids, tot_boxes, confidences[i]], gt, ovthresh=0.5) for i in range(rank)]))
+    mIoU = show_boxes(input_video, gt, preds_formatted)
+    save_reranking_mAP(reranking_mAP,mIoU, run_name)
+    
+    print("Default reranking mAP:", reranking_mAP)
+    
     
     # Show AP over time ?
-    
-    # Show IoU over time + Compute mean IoU
-    show_iou_over_time_and_compute(input_video, gt, predictions["yolov3"][0], run_name+"_yolov3", save=save_plot)
-    show_iou_over_time_and_compute(input_video, gt, predictions["mask_rcnn"][0], run_name+"_maskrcnn", save=save_plot)
-    show_iou_over_time_and_compute(input_video, gt, predictions["ssd512"][0], run_name+"_ssd512", save=save_plot)
-    
+    if save_plot:
+        # Show IoU over time + Compute mean IoU
+        show_iou_over_time_and_compute(input_video, gt, predictions["yolov3"][0], run_name+"_yolov3", save=save_plot)
+        show_iou_over_time_and_compute(input_video, gt, predictions["mask_rcnn"][0], run_name+"_maskrcnn", save=save_plot)
+        show_iou_over_time_and_compute(input_video, gt, predictions["ssd512"][0], run_name+"_ssd512", save=save_plot)
+        
