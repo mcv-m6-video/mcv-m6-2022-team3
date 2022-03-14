@@ -1,0 +1,7 @@
+numpy
+pandas
+tqdm
+beautifulsoup4
+opencv-python
+matplotlib
+lxml

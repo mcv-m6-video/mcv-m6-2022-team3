@@ -174,7 +174,7 @@ if __name__ == "__main__":
     
     # Evaluating noisy AP
     rank = 10
-    frame_ids, tot_boxes, confidences = generate_noisy_bboxes(gt, prob_drop_detections=0, std_coords=10, resizing_factor=1, rank=rank)
+    frame_ids, tot_boxes, confidences = generate_noisy_bboxes(gt, rank=rank, std_coords=10, resizing_factor=1, prob_drop_detections=0, prob_new_detections=0, dropout = 0)
     preds_formatted = utils.predictions_to_gt_format(frame_ids, tot_boxes)
     print("Default reranking mAP:", np.mean(np.array([voc_eval([frame_ids, tot_boxes, confidences[i]], gt, ovthresh=0.5) for i in range(rank)])))
     show_boxes(input_video, gt, preds_formatted)

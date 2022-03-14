@@ -55,19 +55,23 @@ def generate_noisy_bboxes(gt_bboxes, rank=10, std_coords=0, resizing_factor=1, p
 
         #adding new bounding box with prob_new_detection probability
         if prob_new_detections != 0:
-            if random.random() < prob_new_detections:
+            if random.random() > prob_new_detections:
                 x1 = random.randint(0,WIDTH)    
                 x2 = random.randint(x1,WIDTH)
                 y1 = random.randint(0,HEIGHT)
                 y2 = random.randint(y1,HEIGHT)
-                frame_bboxes.append([x1,y2,x2,y2])
+                frame_bboxes.append([x1,y1,x2,y2])
         
         #deleting bounding box with prob_drop_detection probability
-        if prob_drop_detections != 0:
-            frame_bboxes = np.array(frame_bboxes)
-            dets_to_keep = np.random.random(len(frame_bboxes)) > prob_drop_detections
-            frame_bboxes = frame_bboxes[dets_to_keep]
-            frame_bboxes = frame_bboxes.tolist()
+        # if prob_drop_detections != 0:
+        #     frame_bboxes = np.array(frame_bboxes)
+        #     dets_to_keep = np.random.random(len(frame_bboxes)) > prob_drop_detections
+        #     frame_bboxes = frame_bboxes[dets_to_keep]
+        #     frame_bboxes = frame_bboxes.tolist()
+                #deleting bounding box with prob_drop_detection probability
+        if prob_drop_detections!=0:
+            if random.random() < prob_drop_detections:
+                frame_bboxes.pop(random.randint(0,len(frame_bboxes)-1))
 
         #deletes random index X times as defined by dropout amount, 0.5 deletes half of indexes
         if dropout != 0:
