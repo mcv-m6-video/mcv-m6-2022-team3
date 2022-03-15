@@ -171,18 +171,18 @@ def parse_arguments():
                         dest="input_video",
                         required=True,
                         type=str,
-                        help="input_video")
+                        help="Input video for analyzing mIou/mAP")
     parser.add_argument("-a",
                         dest="annotations",
                         required=True,
                         type=str,
-                        help="annotations")
+                        help="XML Groundtruth annotations")
     parser.add_argument("-s",
                         dest="save_plot",
                         required=False,
                         default=False,
                         type=bool,
-                        help="Save mIoU plot")
+                        help="Whether to save the mIoU plot over time")
     parser.add_argument("-r",
                         dest="run_name",
                         required=True,
