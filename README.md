@@ -16,3 +16,5 @@ arguments:
   -s SAVE_PLOT    Whether to save the mIoU plot over time
   -r RUN_NAME     Name of experiment
 ```
+
+See the notebook `optical_flow_evaluation_and_plot.ipynb` for tasks 3 and 4.
