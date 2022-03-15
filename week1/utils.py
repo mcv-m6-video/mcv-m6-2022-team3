@@ -1,7 +1,9 @@
+import os
 from bs4 import BeautifulSoup
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
+import cv2
 import random
 import copy
 
@@ -198,3 +200,45 @@ def get_frame_iou(gt_rects, det_rects):
             list_iou.append(max_iou)
 
     return np.mean(list_iou)
+
+
+## Optical flow utils
+
+class OpticalFlow:
+    """Helper class to load optical flow files and also work with KITTI"""
+    def __init__(self, dataset_path=None):
+        self.dataset_path = dataset_path
+        self.image_dir = os.path.join(dataset_path or "", "training", "image_0")
+        self.flow_dir = os.path.join(dataset_path or "", "training", "flow_noc")
+
+    @staticmethod
+    def load_optical_flow(img_path):
+        flow_data = cv2.imread(img_path, cv2.IMREAD_UNCHANGED).astype('float')
+        mask = (flow_data[:,:,0]).astype('bool')
+        v = (flow_data[:,:,1] - 2**15)/64
+        u = (flow_data[:,:,2] - 2**15)/64
+
+        return mask, u, v
+
+    def load_kitti_image(self, idx):
+        img_path = os.path.join(self.image_dir, f"{idx:06}_10.png")
+        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+        return img
+
+    def __getitem__(self, idx):
+        if self.dataset_path is None:
+            raise ValueError("Please initialize with the dataset: KITTI(dataset_path)")
+
+        # Dataset paths
+        frame1 = f"{idx:06}_10.png"
+        frame2 = f"{idx:06}_11.png"
+        img1_path = os.path.join(self.image_dir, frame1)
+        img2_path = os.path.join(self.image_dir, frame2)
+        flow_path = os.path.join(self.flow_dir, frame1)
+
+        # Load images and optical flow
+        img1 = cv2.imread(img1_path, cv2.IMREAD_GRAYSCALE)
+        img2 = cv2.imread(img2_path, cv2.IMREAD_GRAYSCALE)
+        mask, u, v = self.load_optical_flow(flow_path)
+
+        return mask, u, v
