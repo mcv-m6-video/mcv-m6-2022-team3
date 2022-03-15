@@ -55,7 +55,7 @@ def generate_noisy_bboxes(gt_bboxes, rank=10, std_coords=0, resizing_factor=1, p
 
         #adding new bounding box with prob_new_detection probability
         if prob_new_detections != 0:
-            if random.random() > prob_new_detections:
+            if random.random() < prob_new_detections:
                 x1 = random.randint(0,WIDTH)    
                 x2 = random.randint(x1,WIDTH)
                 y1 = random.randint(0,HEIGHT)

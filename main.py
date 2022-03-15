@@ -201,9 +201,9 @@ if __name__ == "__main__":
     # show_boxes(input_video, gt, predictions["yolov3"][0])
     
     # Compute mAP
-    # print("MaskRCNN mAP 0.5:", voc_eval(predictions["mask_rcnn"][1], gt, ovthresh=0.5))
-    # print("YoloV3 mAP 0.5:", voc_eval(predictions["yolov3"][1], gt, ovthresh=0.5))
-    # print("SSD512 mAP 0.5:", voc_eval(predictions["ssd512"][1], gt, ovthresh=0.5))
+    print("MaskRCNN mAP 0.5:", voc_eval(predictions["mask_rcnn"][1], gt, ovthresh=0.5))
+    print("YoloV3 mAP 0.5:", voc_eval(predictions["yolov3"][1], gt, ovthresh=0.5))
+    print("SSD512 mAP 0.5:", voc_eval(predictions["ssd512"][1], gt, ovthresh=0.5))
 
     if not os.path.exists(EXPERIMENTS_FOLDER):
         os.mkdir(EXPERIMENTS_FOLDER)
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     
     # Evaluating noisy AP
     rank = 10
-    frame_ids, tot_boxes, confidences = generate_noisy_bboxes(gt, rank=rank, std_coords=5, resizing_factor=1, prob_drop_detections=0, prob_new_detections=0, dropout = 0)
+    frame_ids, tot_boxes, confidences = generate_noisy_bboxes(gt, rank=rank, std_coords=0, resizing_factor=1, prob_drop_detections=0, prob_new_detections=0, dropout = 0)
     preds_formatted = utils.predictions_to_gt_format(frame_ids, tot_boxes)
 
     reranking_mAP = np.mean(np.array([voc_eval([frame_ids, tot_boxes, confidences[i]], gt, ovthresh=0.5) for i in range(rank)]))
