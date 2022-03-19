@@ -3,7 +3,7 @@ import cv2
 from cv2 import cvtColor
 import numpy as np
 from argparse import ArgumentParser
-from background_models import GaussianStaticModel
+from background_models import GaussianDynamicModel, GaussianStaticModel
 from io_utils import read_annotations
 from evaluation import show_annotations_and_predictions, voc_eval
 
@@ -37,7 +37,7 @@ def obtain_predictions_from_model(model, video_path, annotations):
             # display_frame = frame
             cv2.imshow('frame',display_frame)
             cv2.imshow('frame_color',cv2.resize(img, tuple(np.int0(0.5*np.array(img.shape[:2][::-1])))))
-            k = cv2.waitKey(wait_time)
+            k = cv2.waitKey(1)
             if k == ord('q'):
                 break
             elif k == ord('p'):
@@ -80,9 +80,18 @@ if __name__ == "__main__":
     annotations = read_annotations(annotations_path)
     model = GaussianStaticModel(input_video, alpha=4.5, color_format="grayscale", num_frames_training=510)
     frame_ids, tot_boxes, confidences = obtain_predictions_from_model(model, input_video, annotations)
-    
     reranking_mAP = np.mean(np.array([voc_eval([frame_ids, tot_boxes, confidences[i]], annotations, ovthresh=0.5) for i in range(len(confidences))]))
-    print("mAP:", reranking_mAP)
+    print("Static gaussian mAP:", reranking_mAP)
+    
+    #model = GaussianStaticModel(input_video, alpha=2.75, color_format="grayscale", num_frames_training=510)
+    #frame_ids, tot_boxes, confidences = obtain_predictions_from_model(model, input_video, annotations)
+    #reranking_mAP = np.mean(np.array([voc_eval([frame_ids, tot_boxes, confidences[i]], annotations, ovthresh=0.5) for i in range(len(confidences))]))
+    #print("Static gaussian mAP:", reranking_mAP)
+    
+    model = GaussianDynamicModel(input_video, rho=0.01, alpha=2.75, color_format="grayscale", num_frames_training=510)
+    frame_ids, tot_boxes, confidences = obtain_predictions_from_model(model, input_video, annotations)
+    reranking_mAP = np.mean(np.array([voc_eval([frame_ids, tot_boxes, confidences[i]], annotations, ovthresh=0.5) for i in range(len(confidences))]))
+    print("Dynamic gaussian mAP:", reranking_mAP)
     
     # Grid search
     # se_sizes = [...]
