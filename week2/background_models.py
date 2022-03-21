@@ -122,4 +122,29 @@ class GaussianDynamicModel(GaussianStaticModel):
         filtered_fg = morphological_filtering(fg_gauss_model)
         detections = obtain_bboxes(filtered_fg)
         return detections, filtered_fg.astype(np.uint8)*255
-    
+
+
+class BackgroundModelCV2(BackgroundModel):
+    def __init__(self, video_path, roi_path, background_substractor, color_format="grayscale", height=1080, width=1920, num_frames_training=510):
+        super().__init__(video_path, roi_path, color_format=None, height=height, width=width, num_frames_training=num_frames_training)
+        self.bgsegm = background_substractor
+        self.min_h, self.min_w, self.max_h, self.max_w = 50, 50, 600, 800
+
+    def fit(self):
+
+        print("Fitting model...")
+        self.cap = cv2.VideoCapture(self.video_path)
+        for i in range(self.frame_count):
+            ret, img = self.cap.read()
+            self.bgsegm.apply(img)
+        self.cap.release()
+
+    def infer(self, img):
+
+        mask = self.bgsegm.apply(img)
+        mask = mask * self.roi
+
+        filtered_fg = morphological_filtering(mask)
+        detections = obtain_bboxes(filtered_fg, min_h=self.min_h, max_h=self.max_h, min_w=self.min_w, max_w=self.max_w)
+
+        return detections, filtered_fg.astype(np.uint8)*255
