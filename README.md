@@ -18,3 +18,19 @@ arguments:
 ```
 
 See the notebook `optical_flow_evaluation_and_plot.ipynb` for tasks 3 and 4.
+
+## Week 2
+The contents of the second week are in the folder `week2`:
+
+The first task consists of modeling the background with a per-pixel Gaussian distribution. For running the code that evaluates the mAP using this background model and evaluates different values of alpha, run:
+```
+usage: task_1.py [-h] -v INPUT_VIDEO -a ANNOTATIONS -r RUN_NAME [-d]
+
+optional arguments:
+  -h, --help      show this help message and exit
+  -v INPUT_VIDEO  Input video for analyzing mIou/mAP
+  -a ANNOTATIONS  XML Groundtruth annotations
+  -r RUN_NAME     Name of experiment
+  -d              Display predictions over the video
+```
+

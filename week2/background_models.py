@@ -100,7 +100,7 @@ class GaussianStaticModel(BackgroundModel):
         fg_gauss_model = fg_gauss_model * self.roi
         if self.debug_ops:
             cv2.imshow("first_fg_img", fg_gauss_model.astype(np.uint8)*255); cv2.waitKey(0)
-        filtered_fg = morphological_filtering(fg_gauss_model, self.debug_ops)
+        filtered_fg = morphological_filtering(fg_gauss_model)
         detections = obtain_bboxes(filtered_fg, min_h=self.min_h, max_h=self.max_h, min_w=self.min_w, max_w=self.max_w)
         return detections, filtered_fg.astype(np.uint8)*255
     
@@ -119,7 +119,7 @@ class GaussianDynamicModel(GaussianStaticModel):
         self.mean[bg] = self.rho * img[bg] + (1-self.rho) * self.mean[bg]
         self.std[bg] = np.sqrt(self.rho * np.power(img[bg] - self.mean[bg], 2) + (1-self.rho) * np.power(self.std[bg], 2))
         
-        filtered_fg = morphological_filtering(fg_gauss_model, self.debug_ops)
+        filtered_fg = morphological_filtering(fg_gauss_model)
         detections = obtain_bboxes(filtered_fg)
         return detections, filtered_fg.astype(np.uint8)*255
     
