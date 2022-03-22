@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from argparse import ArgumentParser
-from background_models import BackgroundModelCV2
+from background_models import BackgroundModelCV2, GaussianDynamicModel, GaussianStaticModel
 from io_utils import read_annotations
 from evaluation import voc_eval
 import os
@@ -55,7 +55,12 @@ if __name__ == "__main__":
         background_substractor = cv2.createBackgroundSubtractorMOG2()
     if method == "LSBP":
         background_substractor = cv2.bgsegm.createBackgroundSubtractorLSBP()
-    model = BackgroundModelCV2(input_video, roi_path, background_substractor=background_substractor, num_frames_training=510)
+
+    if method == "BSUV":
+        model = GaussianDynamicModel(input_video, roi_path, alpha=6.5, color_format="grayscale", num_frames_training=510, apply_morphology=True)
+        model.bg_model_name = "bg_gaussian_bsuv"
+    else:
+        model = BackgroundModelCV2(input_video, roi_path, background_substractor=background_substractor, num_frames_training=510)
     frame_ids, tot_boxes, confidences = obtain_predictions_from_model(model, run_name, input_video, annotations, display=display)
     reranking_mAP = np.mean(np.array([voc_eval([frame_ids, tot_boxes, confidences[i]], annotations, ovthresh=0.5) for i in range(len(confidences))]))
     print(f"Method {method} mAP: {reranking_mAP}")

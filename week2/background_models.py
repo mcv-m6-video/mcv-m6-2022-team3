@@ -28,12 +28,14 @@ class BackgroundModel():
 
     
 class GaussianStaticModel(BackgroundModel):
-    def __init__(self, video_path, roi_path, alpha=4, debug_ops=True, color_format="grayscale", height=1080, width=1920, num_frames_training=510):
+    def __init__(self, video_path, roi_path, alpha=4, debug_ops=True, color_format="grayscale",
+                 height=1080, width=1920, num_frames_training=510, apply_morphology=True):
         super().__init__(video_path, roi_path, color_format=color_format, height=height, width=width, num_frames_training=num_frames_training)
         self.alpha = alpha
         self.bg_model_name = "bg_gaussian_data"
         self.debug_ops = False
         self.min_h, self.min_w, self.max_h, self.max_w = 50, 50, 600, 800
+        self.apply_morphology = apply_morphology
         
         if not os.path.exists(self.bg_model_name):
             os.mkdir(self.bg_model_name)
@@ -100,13 +102,16 @@ class GaussianStaticModel(BackgroundModel):
         fg_gauss_model = fg_gauss_model * self.roi
         if self.debug_ops:
             cv2.imshow("first_fg_img", fg_gauss_model.astype(np.uint8)*255); cv2.waitKey(0)
-        filtered_fg = morphological_filtering(fg_gauss_model)
+        if self.apply_morphology:
+            filtered_fg = morphological_filtering(fg_gauss_model)
+        else:
+            filtered_fg = fg_gauss_model
         detections = obtain_bboxes(filtered_fg, min_h=self.min_h, max_h=self.max_h, min_w=self.min_w, max_w=self.max_w)
         return detections, filtered_fg.astype(np.uint8)*255
     
 class GaussianDynamicModel(GaussianStaticModel):
-    def __init__(self, video_path, roi_path, rho=0.02, alpha=4, debug_ops=True, color_format="grayscale", height=1080, width=1920, num_frames_training=510):
-        super().__init__(video_path, roi_path, alpha=alpha, debug_ops=debug_ops, color_format=color_format, height=height, width=width, num_frames_training=num_frames_training)
+    def __init__(self, video_path, roi_path, rho=0.02, alpha=4, debug_ops=True, color_format="grayscale", height=1080, width=1920, num_frames_training=510, apply_morphology=True):
+        super().__init__(video_path, roi_path, alpha=alpha, debug_ops=debug_ops, color_format=color_format, height=height, width=width, num_frames_training=num_frames_training, apply_morphology=apply_morphology)
         self.rho = rho
 
     def infer(self, img):
@@ -119,7 +124,10 @@ class GaussianDynamicModel(GaussianStaticModel):
         self.mean[bg] = self.rho * img[bg] + (1-self.rho) * self.mean[bg]
         self.std[bg] = np.sqrt(self.rho * np.power(img[bg] - self.mean[bg], 2) + (1-self.rho) * np.power(self.std[bg], 2))
         
-        filtered_fg = morphological_filtering(fg_gauss_model)
+        if self.apply_morphology:
+            filtered_fg = morphological_filtering(fg_gauss_model)
+        else:
+            filtered_fg = fg_gauss_model
         detections = obtain_bboxes(filtered_fg)
         return detections, filtered_fg.astype(np.uint8)*255
 
