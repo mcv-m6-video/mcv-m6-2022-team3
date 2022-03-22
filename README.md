@@ -34,3 +34,16 @@ optional arguments:
   -d              Display predictions over the video
 ```
 
+The last task consists of generalizing both the adaptive and the non-adaptive modelings for the background from the firsts tasks to be used in color sequences. For running the code that evaluates the mAP using this background models (static or dynamic) with different color spaces and evaluates different values of alpha, run:
+```
+usage: task_4.py [-h] -v INPUT_VIDEO -a ANNOTATIONS -r RUN_NAME -c COLOR_SPACE [-y] [-d]
+
+optional arguments:
+  -h, --help      show this help message and exit
+  -v INPUT_VIDEO  Input video for analyzing mIou/mAP
+  -a ANNOTATIONS  XML Groundtruth annotations
+  -r RUN_NAME     Name of experiment
+  -c COLOR_SPACE  Color space used to model the background
+  -y              Use dynamic model for the background (static otherwise)
+  -d              Display predictions over the video
+```

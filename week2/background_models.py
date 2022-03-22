@@ -18,13 +18,25 @@ class BackgroundModel():
         pass
     
     def convert_color_space(self, img):
-        if self.color_format == "RGB":
+        if self.color_format in ("RGB", "BGR"):
             return img
-        if self.color_format == "grayscale":
+        elif self.color_format == "grayscale":
             return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        if self.color_format == "RGB":
-            return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        #...
+        elif self.color_format in ("HSV", "HS"):
+            img_conv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+            if self.color_format == "HS":
+                return img_conv[:,:,(0,1)]
+            return img_conv
+        elif self.color_format in ("LAB", "Lab", "AB", "ab"):
+            img_conv = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+            if self.color_format in ("AB", "ab"):
+                return img_conv[:,:,(1,2)]
+            return img_conv
+        elif self.color_format in ("YUV", "YCrCb", "UV", "CrCb"):
+            img_conv = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+            if self.color_format in ("UV", "CbCr"):
+                return img_conv[:,:,(1,2)]
+            return img_conv
 
     
 class GaussianStaticModel(BackgroundModel):
@@ -48,18 +60,18 @@ class GaussianStaticModel(BackgroundModel):
         else:
             if self.color_format == "grayscale":
                 mean_img = np.zeros([self.height, self.width], dtype=np.float32)
-                for i in range(self.frame_count):
-                    ret, img = self.cap.read()
-                    img = self.convert_color_space(img).astype(np.float32)
-                    mean_img = mean_img + img/self.frame_count
+
+            elif self.color_format in ("HS", "AB", "ab", "UV", "CbCr"):
+                mean_img = np.zeros([self.height, self.width, 2], dtype=np.float32)
             
             else:
                 mean_img = np.zeros([self.height, self.width, 3], dtype=np.float32)
 
-                for i in range(self.frame_count):
-                    ret, img = self.cap.read()
-                    img = self.convert_color_space(img).astype(np.float32)
-                    mean_img = mean_img + img/self.frame_count
+            for i in range(self.frame_count):
+                ret, img = self.cap.read()
+                img = self.convert_color_space(img).astype(np.float32)
+                mean_img = mean_img + img/self.frame_count
+            
             self.cap.release()
             np.save(mean_img_path, mean_img)
         
@@ -71,19 +83,17 @@ class GaussianStaticModel(BackgroundModel):
             self.cap = cv2.VideoCapture(self.video_path)
             if self.color_format == "grayscale":
                 std_img = np.zeros([self.height, self.width], dtype=np.float32)
-            
-                for i in range(self.frame_count):
-                    ret, img = self.cap.read()
-                    img = self.convert_color_space(img).astype(np.float32)
-                    std_img = std_img + ((mean_img - img)**2) / (self.frame_count-1)
+
+            elif self.color_format in ("HS", "AB", "ab", "UV", "CbCr"):
+                std_img = np.zeros([self.height, self.width, 2], dtype=np.float32)
             
             else:
                 std_img = np.zeros([self.height, self.width, 3], dtype=np.float32)
             
-                for i in range(self.frame_count):
-                    ret, img = self.cap.read()
-                    img = self.convert_color_space(img).astype(np.float32)
-                    std_img = std_img + ((mean_img - img)**2) / (self.frame_count-1)
+            for i in range(self.frame_count):
+                ret, img = self.cap.read()
+                img = self.convert_color_space(img).astype(np.float32)
+                std_img = std_img + ((mean_img - img)**2) / (self.frame_count-1)
             
             self.cap.release()
             std_img = np.sqrt(std_img)
@@ -97,6 +107,10 @@ class GaussianStaticModel(BackgroundModel):
             cv2.imshow("orig_img", img); cv2.waitKey(0)
         img = self.convert_color_space(img).astype(np.float32)
         fg_gauss_model = (np.abs(img-self.mean) >= self.alpha * (self.std + 2)) #.astype(np.uint8) * 255
+        if (len(fg_gauss_model.shape)==3) and (fg_gauss_model.shape[2]==2):
+            fg_gauss_model = np.logical_and(fg_gauss_model[:,:,0], fg_gauss_model[:,:,1])
+        elif (len(fg_gauss_model.shape)==3) and (fg_gauss_model.shape[2]==3):
+            fg_gauss_model = np.logical_and(np.logical_and(fg_gauss_model[:,:,0], fg_gauss_model[:,:,1]), fg_gauss_model[:,:,2])
         fg_gauss_model = fg_gauss_model * self.roi
         if self.debug_ops:
             cv2.imshow("first_fg_img", fg_gauss_model.astype(np.uint8)*255); cv2.waitKey(0)
@@ -113,6 +127,10 @@ class GaussianDynamicModel(GaussianStaticModel):
         # Update background model
         img = self.convert_color_space(img).astype(np.float32)
         fg_gauss_model = (np.abs(img-self.mean) >= self.alpha * (self.std + 2)) #.astype(np.uint8) * 255
+        if (len(fg_gauss_model.shape)==3) and (fg_gauss_model.shape[2]==2):
+            fg_gauss_model = np.logical_and(fg_gauss_model[:,:,0], fg_gauss_model[:,:,1])
+        elif (len(fg_gauss_model.shape)==3) and (fg_gauss_model.shape[2]==3):
+            fg_gauss_model = np.logical_and(np.logical_and(fg_gauss_model[:,:,0], fg_gauss_model[:,:,1]), fg_gauss_model[:,:,2])
         fg_gauss_model = fg_gauss_model * self.roi
         bg = ~fg_gauss_model
         
