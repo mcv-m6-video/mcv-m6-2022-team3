@@ -35,7 +35,7 @@ optional arguments:
 ```
 
 To try the different methods mentioned for task 3, we can use the `task_3.py` script the same way as the `task_1.py` above, but with an additional `-m --method` argument which can be one of `MOG`, `MOG2` or `LSBP`.
-To get the results for the BSUV-net method, we have to first perform inference with their [released weights](https://github.com/ozantezcan/BSUV-Net-inference), and then feed the masked video to the `task_3.py` script, using `BSUV` as the chosen method.
+To get the results for the BSUV-net method, we have to first perform inference with their [released weights](https://github.com/ozantezcan/BSUV-Net-inference), and then feed the masked video to the `task_3.py` script, using `BSUV` as the chosen method. The already processed video sequence is available on [this link](https://drive.google.com/file/d/1xGEcGX39hYitts1rpiXmCX9tV132zeJv/view?usp=sharing).
 
 The last task consists of generalizing both the adaptive and the non-adaptive modelings for the background from the firsts tasks to be used in color sequences. For running the code that evaluates the mAP using this background models (static or dynamic) with different color spaces and evaluates different values of alpha, run:
 ```
