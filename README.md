@@ -50,3 +50,23 @@ optional arguments:
   -y              Use dynamic model for the background (static otherwise)
   -d              Display predictions over the video
 ```
+
+## Week 3
+The contents of the second week are in the folder `week3`:
+
+Task 1.1 evaluates mAP on off-the-shelf detectors:
+```
+usage: task1_1.py -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME [-d] [-g]
+
+optional arguments:
+  -v INPUT_VIDEO        Input video for analyzing mIou/mAP
+  -a ANNOTATIONS        XML Groundtruth annotations
+  -n ARCHITECTURE_NAME  Architecture name. Options: FasterRCNN / MaskRCNN / ...
+  -d                    Display predictions over the video
+  -g                    Use GPU for model inference
+```
+
+Task 1.2 finetunes and evaluates finetuned detectors on part of the sequence:
+```
+...
+```

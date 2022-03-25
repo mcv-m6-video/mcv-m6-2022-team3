@@ -16,6 +16,8 @@ from evaluation import show_annotations_and_predictions, voc_eval
 import os
 from tqdm import tqdm
 from torchvision.ops import nms
+from datasets import create_dataloaders
+import torchvision
 
 import torch
 from models import load_model
@@ -23,8 +25,10 @@ from models import load_model
 WAIT_TIME = 1
 SAVE = False
 CAR_LABEL_NUM = 3
+FRAME_25PER = 510
+EXPERIMENTS_FOLDER = "experiments"
 
-def task1_1(architecture_name, video_path, annotations, first_frame=0, use_gpu=True, display=True):
+def task1_2(architecture_name, video_path, annotations, first_frame=0, use_gpu=True, display=True):
     """
     Off-the-shelf object detector 
     """
@@ -85,19 +89,29 @@ def task1_1(architecture_name, video_path, annotations, first_frame=0, use_gpu=T
     tot_predictions = [frame_numbers.astype(np.int64), predictions.reshape((len(frame_numbers), 4)), total_scores]
     return tot_predictions
 
-def task1_2(finetune=True, architecture='maskrcnn', save_path=None):
+def task1_2(architecture_name, video_path, annotations, run_name, finetune, train_model=False, use_gpu=True):
     """
     Finetune object detector
     """
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    train_loader, test_loader = get_data_loaders(root='data')
-    model = get_model(architecture=architecture, finetune=finetune, num_classes=len(train_loader.dataset.classes))
-    model.to(device)
+    transformations = torchvision.transforms.ToTensor()
+    train_idxs, test_idxs = np.arange(0, FRAME_25PER), np.arange(FRAME_25PER, FRAME_25PER*4)
+    train_loader, test_loader = create_dataloaders(annotations, video_path, train_idxs, test_idxs, transformations)
+    model, device = load_model(architecture_name, use_gpu, finetune=finetune)
 
+    model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
+    if not os.path.exists(model_folder_files):
+        os.mkdir(model_folder_files)
+    
     if finetune:
-        train(model, train_loader, test_loader, device, save_path=save_path)
+        if train_model:
+            train(model, train_loader, test_loader, device, run_name, save_path=model_folder_files)
+        else:
+            mAP = evaluate(model, test_loader, device, run_name, save_path=model_folder_files)
     else:
-        evaluate(model, test_loader, device, save_path=save_path)
+        mAP = evaluate(model, test_loader, device, run_name, save_path=model_folder_files)
+
+    print("mAP is:", mAP)
     
 def parse_arguments():
     parser = ArgumentParser()
@@ -116,6 +130,11 @@ def parse_arguments():
                         required=True,
                         type=str,
                         help="Architecture name. Options: FasterRCNN / MaskRCNN / ... ")
+    parser.add_argument("-r",
+                        dest="run_name",
+                        required=True,
+                        type=str,
+                        help="Run name. Options: FasterRCNN / MaskRCNN / ... ")
     parser.add_argument("-d", 
                         default=False, 
                         dest="display",

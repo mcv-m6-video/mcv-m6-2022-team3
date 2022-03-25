@@ -32,7 +32,7 @@ class AICityDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.frame_idxs)
     
-def get_data_loaders(annotations, video_path, train_idxs, test_idxs, transformations):
+def create_dataloaders(annotations, video_path, train_idxs, test_idxs, transformations):
     # use our dataset and defined transformations
     train_dataset = AICityDataset(annotations, video_path, train_idxs, transformations=transformations)
     test_dataset = AICityDataset(annotations, video_path, test_idxs, transformations=transformations)

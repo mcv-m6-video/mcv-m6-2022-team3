@@ -1,11 +1,22 @@
 import torchvision
 import torch
 
-def load_model(architecture_name, use_gpu):
+def load_model(architecture_name, use_gpu, finetune=False):
     if architecture_name == 'FasterRCNN':
         model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
+        if finetune:
+            in_features = model.roi_heads.box_predictor.cls_score.in_features
+            # Keep first 4 classes so that car is still classified as class 3
+            model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, 4)
     elif architecture_name == 'MaskRCNN':
         model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True)
+        if finetune:
+            model.roi_heads.mask_roi_pool = None
+            model.roi_heads.mask_head = None
+            model.roi_heads.mask_predictor = None
+            in_features = model.roi_heads.box_predictor.cls_score.in_features
+            # Keep first 4 classes so that car is still classified as class 3
+            model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, 4)
     elif architecture_name == 'more':
         # ...
         pass
@@ -16,3 +27,68 @@ def load_model(architecture_name, use_gpu):
     model.to(device)
     model.eval()
     return model, device
+
+@torch.no_grad()
+def evaluate(model, data_loader, device, save_path=None):
+    n_threads = torch.get_num_threads()
+
+    y_true = []
+    y_pred = []
+    for image, targets in metric_logger.log_every(data_loader, 100, header):
+        image = list(img.to(device) for img in image)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+        torch.cuda.synchronize()
+
+        model_time = time.time()
+        outputs = model(image)
+        outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
+        model_time = time.time() - model_time
+        metric_logger.update(model_time=model_time)
+
+        for target, output in zip(targets, outputs):
+            frame = target['image_id'].item()
+
+    # gather the stats from all processes
+    print("Averaged stats:", metric_logger)
+
+    torch.set_num_threads(n_threads)
+    
+
+def train(model, train_loader, test_loader, device, num_epochs=1, save_path=None):
+    params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+
+    # TODO: Add tensorboard logging or something
+    for epoch in range(num_epochs):
+        model.train()
+        header = 'Epoch: [{}]'.format(epoch)
+
+        # Could add warmup lr scheduler
+        for images, targets in train_loader:
+            images = list(image.to(device) for image in images)
+            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+            loss_dict = model(images, targets)
+
+            losses = sum(loss for loss in loss_dict.values())
+
+            # reduce losses over all GPUs for logging purposes
+            loss_dict_reduced = utils.reduce_dict(loss_dict)
+            losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+
+            loss_value = losses_reduced.item()
+            
+            optimizer.zero_grad()
+            losses.backward()
+            optimizer.step()
+
+            if lr_scheduler is not None:
+                lr_scheduler.step()
+
+            metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
+            metric_logger.update(lr=optimizer.param_groups[0]["lr"])
+        
+        lr_scheduler.step()
+        evaluate(model, test_loader, device, save_path)

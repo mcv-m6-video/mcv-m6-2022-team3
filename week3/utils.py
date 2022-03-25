@@ -121,12 +121,20 @@ def parse_xml_reacts(path_to_anno, discard_parked=True):
             boxs_in_track = item.find_all('box')
             for box in boxs_in_track:
                 # print(box.get('frame'))
-                if discard_parked and box.attribute.text == "false":
+                if discard_parked:
+                    if box.attribute.text == "false":
+                        frame_n = int(box.get('frame'))
+                        if frame_n not in frame_dict:
+                            frame_dict[frame_n] = []
+                        frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
+                            float(box.get('xbr')), float(box.get('ybr'))])
+                else:
                     frame_n = int(box.get('frame'))
                     if frame_n not in frame_dict:
                         frame_dict[frame_n] = []
                     frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
                         float(box.get('xbr')), float(box.get('ybr'))])
+                    
     return frame_dict
 
 def parse_predictions_rects(path):
