@@ -20,74 +20,13 @@ from datasets import create_dataloaders
 import torchvision
 
 import torch
-from models import load_model
+from models import load_model, train, evaluate
 
 WAIT_TIME = 1
 SAVE = False
 CAR_LABEL_NUM = 3
 FRAME_25PER = 510
 EXPERIMENTS_FOLDER = "experiments"
-
-def task1_2(architecture_name, video_path, annotations, first_frame=0, use_gpu=True, display=True):
-    """
-    Off-the-shelf object detector 
-    """
-
-    # Prepare model
-    model, device = load_model(architecture_name, use_gpu)
-    
-    # Prepare video capture
-    cap = cv2.VideoCapture(video_path)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, first_frame)
-    ret = True
-    frame_number = first_frame
-    
-    predictions, frame_numbers, total_scores = [], [], []
-    ret, img = cap.read()
-
-    with torch.no_grad():
-        while ret:
-            # Model inference
-            x = [image_to_tensor(img, device)]
-            output = model(x)
-            preds = output[0]
-
-            # Keep only car predictions
-            keep_cars_mask = preds['labels'] == CAR_LABEL_NUM
-            bboxes, scores = preds['boxes'][keep_cars_mask], preds['scores'][keep_cars_mask]
-            idxs = nms(bboxes, scores, 0.7)
-            final_dets, final_scores = bboxes[idxs], scores[idxs]
-
-            for i in range(len(final_dets)):
-                predictions.append(final_dets[i])
-                total_scores.append(final_scores[i])
-            
-            frame_numbers.append([frame_number for _ in range(len(final_dets))])
-            
-            if display:
-                if frame_number in list(annotations.keys()):
-                    show_annotations_and_predictions(img, annotations[frame_number], final_dets[final_scores > 0.3])
-                else:
-                    show_annotations_and_predictions(img, [], final_dets[final_scores > 0.3])
-
-            """ if SAVE:
-                if not os.path.exists(EXPERIMENTS_FOLDER):
-                    os.mkdir(EXPERIMENTS_FOLDER)
-                experiment_run_folder = os.path.join(EXPERIMENTS_FOLDER, run_name)
-                if not os.path.exists(experiment_run_folder):
-                    os.mkdir(experiment_run_folder)
-                
-                cv2.imwrite(experiment_run_folder+'/image_'+str(frame_number-frame_25per).zfill(4)+'.jpg', cv2.resize(img, tuple(np.int0(0.5*np.array(img.shape[:2][::-1])))))
-                cv2.imwrite(experiment_run_folder+'/classification_'+str(frame_number-frame_25per).zfill(4)+'.jpg', cv2.resize(frame, tuple(np.int0(0.5*np.array(img.shape[:2][::-1]))))) """
-            
-            frame_number += 1
-            ret, img = cap.read()
-    
-    cap.release()
-    cv2.destroyAllWindows()
-    frame_numbers, predictions = np.concatenate(frame_numbers), np.concatenate(predictions)
-    tot_predictions = [frame_numbers.astype(np.int64), predictions.reshape((len(frame_numbers), 4)), total_scores]
-    return tot_predictions
 
 def task1_2(architecture_name, video_path, annotations, run_name, finetune, train_model=False, use_gpu=True):
     """
@@ -106,12 +45,15 @@ def task1_2(architecture_name, video_path, annotations, run_name, finetune, trai
     if finetune:
         if train_model:
             train(model, train_loader, test_loader, device, run_name, save_path=model_folder_files)
+            print("Training done")
         else:
+            model.load_state_dict(torch.load(os.path.join(model_folder_files, "best.ckpt")))
+            model.eval()
             mAP = evaluate(model, test_loader, device, run_name, save_path=model_folder_files)
+            print("mAP for "+run_name+" is:", mAP)
     else:
         mAP = evaluate(model, test_loader, device, run_name, save_path=model_folder_files)
-
-    print("mAP is:", mAP)
+        print("mAP for "+run_name+" is:", mAP)
     
 def parse_arguments():
     parser = ArgumentParser()
@@ -134,7 +76,12 @@ def parse_arguments():
                         dest="run_name",
                         required=True,
                         type=str,
-                        help="Run name. Options: FasterRCNN / MaskRCNN / ... ")
+                        help="Name of the experiment")
+    """ parser.add_argument("-r",
+                        dest="run_name",
+                        required=True,
+                        type=str,
+                        help="Name of the experiment") """
     parser.add_argument("-d", 
                         default=False, 
                         dest="display",
@@ -147,12 +94,13 @@ def parse_arguments():
                         help="Use GPU for model inference")
     args = parser.parse_args()
 
-    return args.input_video, args.annotations, args.architecture_name, args.display, args.use_gpu
+    return args.input_video, args.annotations, args.architecture_name, args.display, args.use_gpu, args.run_name
     
 if __name__ == "__main__":
-    input_video, annotations_path, architecture_name, display, use_gpu = parse_arguments()
+    input_video, annotations_path, architecture_name, display, use_gpu, run_name = parse_arguments()
     annotations = read_annotations(annotations_path)
-    frame_ids, tot_boxes, confidences = task1_1(architecture_name, input_video, annotations, first_frame=0, use_gpu=use_gpu, display=display)
+    # (architecture_name, video_path, annotations, run_name, finetune, train_model=False, use_gpu=True)
+    frame_ids, tot_boxes, confidences = task1_2(architecture_name, input_video, annotations, run_name, first_frame=0, use_gpu=use_gpu, display=display)
     mAP = voc_eval([frame_ids, tot_boxes, confidences], annotations, ovthresh=0.5)
     print("Model ["+architecture_name+"] mAP:", mAP)
     

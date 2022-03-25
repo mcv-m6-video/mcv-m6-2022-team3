@@ -27,7 +27,9 @@ class AICityDataset(torch.utils.data.Dataset):
         if self.transformations is not None:
             img = self.transformations(img)
 
-        return img, boxes, labels
+        target = {'boxes': boxes, 'labels': labels, 'image_id': torch.tensor([idx])}
+
+        return img, target
 
     def __len__(self):
         return len(self.frame_idxs)

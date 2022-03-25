@@ -97,8 +97,6 @@ def generate_noisy_bboxes(gt_bboxes, rank=10, std_coords=0, resizing_factor=1, p
     # Return in required format for evaluation
     return frame_ids, tot_boxes, confidences
 
-
-
 def parse_xml_reacts(path_to_anno, discard_parked=True):
 
     # Reading the data inside the xml

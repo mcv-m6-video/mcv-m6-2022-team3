@@ -1,5 +1,9 @@
 import torchvision
 import torch
+import logging
+import tv_utils
+import numpy as np
+import os
 
 def load_model(architecture_name, use_gpu, finetune=False):
     if architecture_name == 'FasterRCNN':
@@ -30,7 +34,8 @@ def load_model(architecture_name, use_gpu, finetune=False):
 
 @torch.no_grad()
 def evaluate(model, data_loader, device, save_path=None):
-    n_threads = torch.get_num_threads()
+    return 1
+    """ n_threads = torch.get_num_threads()
 
     y_true = []
     y_pred = []
@@ -52,21 +57,39 @@ def evaluate(model, data_loader, device, save_path=None):
     # gather the stats from all processes
     print("Averaged stats:", metric_logger)
 
-    torch.set_num_threads(n_threads)
+    torch.set_num_threads(n_threads) """
     
+def warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor):
+
+    def f(x):
+        if x >= warmup_iters:
+            return 1
+        alpha = float(x) / warmup_iters
+        return warmup_factor * (1 - alpha) + alpha
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, f)
 
 def train(model, train_loader, test_loader, device, num_epochs=1, save_path=None):
+    print_freq = 10
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+    mAPs = [0]
 
     # TODO: Add tensorboard logging or something
     for epoch in range(num_epochs):
         model.train()
+        metric_logger = logging.MetricLogger(delimiter="  ")
+        metric_logger.add_meter('lr', logging.SmoothedValue(window_size=1, fmt='{value:.6f}'))
         header = 'Epoch: [{}]'.format(epoch)
 
-        # Could add warmup lr scheduler
-        for images, targets in train_loader:
+        """ lr_scheduler = None
+        if epoch == 0:
+            warmup_iterations = min(500, len(train_loader) - 1)
+            warmup_factor = 1. / warmup_iterations
+            lr_scheduler = warmup_lr_scheduler(optimizer, warmup_iterations, warmup_factor) """
+
+        for images, targets in metric_logger.log_every(train_loader, print_freq, header):
             images = list(image.to(device) for image in images)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -75,11 +98,9 @@ def train(model, train_loader, test_loader, device, num_epochs=1, save_path=None
             losses = sum(loss for loss in loss_dict.values())
 
             # reduce losses over all GPUs for logging purposes
-            loss_dict_reduced = utils.reduce_dict(loss_dict)
+            loss_dict_reduced = tv_utils.reduce_dict(loss_dict)
             losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
-            loss_value = losses_reduced.item()
-            
             optimizer.zero_grad()
             losses.backward()
             optimizer.step()
@@ -89,6 +110,15 @@ def train(model, train_loader, test_loader, device, num_epochs=1, save_path=None
 
             metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
             metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-        
+
         lr_scheduler.step()
-        evaluate(model, test_loader, device, save_path)
+        mAP = evaluate(model, test_loader, device)
+        if mAP < np.min(np.array(mAPs)):
+            if save_path is not None:
+                torch.save(model.state_dict(), os.path.join(save_path, "best.ckpt"))
+            
+        mAPs.append(mAP)
+        
+        print("Current mAPs by epoch:", mAPs)
+        
+    return mAP
