@@ -1,6 +1,6 @@
 import torchvision
 import torch
-import logging
+import logging_utils
 import tv_utils
 import numpy as np
 import os
@@ -79,8 +79,8 @@ def train(model, train_loader, test_loader, device, num_epochs=1, save_path=None
     # TODO: Add tensorboard logging or something
     for epoch in range(num_epochs):
         model.train()
-        metric_logger = logging.MetricLogger(delimiter="  ")
-        metric_logger.add_meter('lr', logging.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+        metric_logger = logging_utils.MetricLogger(delimiter="  ")
+        metric_logger.add_meter('lr', logging_utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
         header = 'Epoch: [{}]'.format(epoch)
 
         """ lr_scheduler = None
@@ -90,7 +90,7 @@ def train(model, train_loader, test_loader, device, num_epochs=1, save_path=None
             lr_scheduler = warmup_lr_scheduler(optimizer, warmup_iterations, warmup_factor) """
 
         for images, targets in metric_logger.log_every(train_loader, print_freq, header):
-            images = list(image.to(device) for image in images)
+            images = [image.to(device) for image in images]
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
             loss_dict = model(images, targets)

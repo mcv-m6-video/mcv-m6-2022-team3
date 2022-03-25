@@ -65,8 +65,10 @@ optional arguments:
   -d                    Display predictions over the video
   -g                    Use GPU for model inference
 ```
+Example: python week3/task1_1.py -v /home/sergio/MCV/M6/data/AICity_data/train/S03/c010/vdo.avi -a /home/sergio/MCV/M6/data/ai_challenge_s03_c010-full_annotation.xml -n FasterRCNN -g
 
 Task 1.2 finetunes and evaluates finetuned detectors on part of the sequence:
 ```
 ...
 ```
+Example: python week2/task1_2.py -v /home/sergio/MCV/M6/data/AICity_data/train/S03/c010/vdo.avi -a /home/sergio/MCV/M6/data/ai_challenge_s03_c010-full_annotation.xml -n FasterRCNN -g -r fasterRCNN_finetune -t

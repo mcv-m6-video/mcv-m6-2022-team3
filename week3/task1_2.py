@@ -39,12 +39,15 @@ def task1_2(architecture_name, video_path, annotations, run_name, finetune, trai
     model, device = load_model(architecture_name, use_gpu, finetune=finetune)
 
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
+
+    if not os.path.exists(model_folder_files):
+        os.mkdir(EXPERIMENTS_FOLDER)
     if not os.path.exists(model_folder_files):
         os.mkdir(model_folder_files)
     
     if finetune:
         if train_model:
-            train(model, train_loader, test_loader, device, run_name, save_path=model_folder_files)
+            train(model, train_loader, test_loader, device, num_epochs=10, save_path=model_folder_files)
             print("Training done")
         else:
             model.load_state_dict(torch.load(os.path.join(model_folder_files, "best.ckpt")))
@@ -77,16 +80,11 @@ def parse_arguments():
                         required=True,
                         type=str,
                         help="Name of the experiment")
-    """ parser.add_argument("-r",
-                        dest="run_name",
-                        required=True,
-                        type=str,
-                        help="Name of the experiment") """
-    parser.add_argument("-d", 
+    parser.add_argument("-t",
                         default=False, 
-                        dest="display",
+                        dest="train",
                         action="store_true",
-                        help="Display predictions over the video")
+                        help="Specify to train, otherwise will evaluate")
     parser.add_argument("-g", 
                         default=False, 
                         dest="use_gpu",
@@ -94,13 +92,13 @@ def parse_arguments():
                         help="Use GPU for model inference")
     args = parser.parse_args()
 
-    return args.input_video, args.annotations, args.architecture_name, args.display, args.use_gpu, args.run_name
+    return args.input_video, args.annotations, args.architecture_name, args.use_gpu, args.run_name, args.train
     
 if __name__ == "__main__":
-    input_video, annotations_path, architecture_name, display, use_gpu, run_name = parse_arguments()
+    input_video, annotations_path, architecture_name, use_gpu, run_name, train_model = parse_arguments()
     annotations = read_annotations(annotations_path)
     # (architecture_name, video_path, annotations, run_name, finetune, train_model=False, use_gpu=True)
-    frame_ids, tot_boxes, confidences = task1_2(architecture_name, input_video, annotations, run_name, first_frame=0, use_gpu=use_gpu, display=display)
+    frame_ids, tot_boxes, confidences = task1_2(architecture_name, input_video, annotations, run_name, True, train_model=train_model, use_gpu=use_gpu)
     mAP = voc_eval([frame_ids, tot_boxes, confidences], annotations, ovthresh=0.5)
     print("Model ["+architecture_name+"] mAP:", mAP)
     
