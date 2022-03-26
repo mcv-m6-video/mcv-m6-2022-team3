@@ -23,7 +23,7 @@ class AICityDataset(torch.utils.data.Dataset):
         else:
             boxes = torch.tensor([])
         
-        labels = torch.ones((len(boxes)))*self.class_car_number
+        labels = torch.ones((len(boxes)), dtype=torch.int64)*self.class_car_number
         
         if self.transformations is not None:
             img = self.transformations(img)
@@ -44,7 +44,7 @@ def create_dataloaders(annotations, video_path, train_idxs, test_idxs, transform
     test_dataset = AICityDataset(annotations, video_path, test_idxs, transformations=transformations)
 
     # define training and validation data loaders
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=8, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=8, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
 
     return train_loader, test_loader

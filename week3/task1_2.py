@@ -40,22 +40,24 @@ def task1_2(architecture_name, video_path, annotations, run_name, finetune, trai
 
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
 
-    if not os.path.exists(model_folder_files):
+    if not os.path.exists(EXPERIMENTS_FOLDER):
         os.mkdir(EXPERIMENTS_FOLDER)
     if not os.path.exists(model_folder_files):
         os.mkdir(model_folder_files)
     
+    mAP = evaluate(model, test_loader, device, annotations)
+    print("Initial mAP:", mAP)
     if finetune:
         if train_model:
-            train(model, train_loader, test_loader, device, num_epochs=10, save_path=model_folder_files)
+            train(model, train_loader, test_loader, device, annotations, num_epochs=10, save_path=model_folder_files)
             print("Training done")
         else:
             model.load_state_dict(torch.load(os.path.join(model_folder_files, "best.ckpt")))
             model.eval()
-            mAP = evaluate(model, test_loader, device, run_name, save_path=model_folder_files)
+            mAP = evaluate(model, test_loader, device, annotations)
             print("mAP for "+run_name+" is:", mAP)
     else:
-        mAP = evaluate(model, test_loader, device, run_name, save_path=model_folder_files)
+        mAP = evaluate(model, test_loader, device, annotations)
         print("mAP for "+run_name+" is:", mAP)
     
 def parse_arguments():
@@ -90,9 +92,17 @@ def parse_arguments():
                         dest="use_gpu",
                         action="store_true",
                         help="Use GPU for model inference")
+    
+    ## Model training parameters
+    parser.add_argument("-b", 
+                        default=8, 
+                        dest="batch_size",
+                        type=int,
+                        help="Batch size")
+    
     args = parser.parse_args()
 
-    return args.input_video, args.annotations, args.architecture_name, args.use_gpu, args.run_name, args.train
+    return args.input_video, args.annotations, args.architecture_name, args.use_gpu, args.run_name, args.train #, args
     
 if __name__ == "__main__":
     input_video, annotations_path, architecture_name, use_gpu, run_name, train_model = parse_arguments()
