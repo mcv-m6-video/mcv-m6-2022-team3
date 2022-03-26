@@ -1,3 +1,4 @@
+from genericpath import exists
 import os
 import time
 from collections import defaultdict
@@ -112,4 +113,7 @@ if __name__ == "__main__":
     mAP = voc_eval([frame_ids, tot_boxes, confidences], annotations, ovthresh=0.5)
     print("Model ["+architecture_name+"] mAP:", mAP)
     
-    
+
+"""
+python3 week3/task1_2.py -v /home/aszummer/Documents/MCV/M6/mcvm6team3/data/AICity_data/AICity_data/train/S03/c010/vdo.avi -a /home/aszummer/Documents/MCV/M6/mcvm6team3/data/ai_challenge_s03_c010-full_annotation.xml -n FasterRCNN -g -r "test"
+"""

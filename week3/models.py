@@ -11,7 +11,7 @@ from copy import deepcopy
 
 CAR_LABEL_NUM = 3
 
-def load_model(architecture_name, use_gpu, finetune=False):
+def load_model(architecture_name, use_gpu, finetune=False, trainable_backbone_layers=None):
     if architecture_name == 'FasterRCNN':
         model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True)
         #if finetune:
@@ -27,6 +27,27 @@ def load_model(architecture_name, use_gpu, finetune=False):
             # in_features = model.roi_heads.box_predictor.cls_score.in_features
             # Keep first 4 classes so that car is still classified as class 3
             # model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, 4)
+    elif architecture_name == 'RetinaNet':
+        model = torchvision.models.detection.retinanet_resnet50_fpn(pretrained=True, trainable_backbone_layers=trainable_backbone_layers)
+        if finetune:
+            model = torchvision.models.detection.retinanet_resnet50_fpn(pretrained=True, trainable_backbone_layers=trainable_backbone_layers,num_classes=4)
+    
+    elif architecture_name == 'SSD':
+        model = torchvision.models.detection.ssd300_vgg16(pretrained=True,pretrained_backbone=True,trainable_backbone_layers=trainable_backbone_layers)
+        if finetune:
+            model = torchvision.models.detection.ssd300_vgg16(pretrained=True,pretrained_backbone=True,trainable_backbone_layers=trainable_backbone_layers, num_classes=4)
+
+    elif architecture_name == 'SSDlite':
+        model = torchvision.models.detection.ssdlite320_mobilenet_v3_large(pretrained=True,pretrained_backbone=True,trainable_backbone_layers=trainable_backbone_layers)
+        if finetune:
+            model = torchvision.models.detection.ssdlite320_mobilenet_v3_large(pretrained=True,pretrained_backbone=True,trainable_backbone_layers=trainable_backbone_layers, num_classes=4)
+
+    elif architecture_name == 'FCOS':
+        model = torchvision.models.detection.fcos_resnet50_fpn(pretrained=True,pretrained_backbone=True,trainable_backbone_layers=trainable_backbone_layers)
+        if finetune:
+            model = torchvision.models.detection.fcos_resnet50_fpn(pretrained=True,pretrained_backbone=True,trainable_backbone_layers=trainable_backbone_layers, num_classes=4)
+
+
     elif architecture_name == 'more':
         # ...
         pass
