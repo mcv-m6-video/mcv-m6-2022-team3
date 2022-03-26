@@ -1,3 +1,4 @@
+from genericpath import exists
 import os
 import time
 from collections import defaultdict
@@ -40,22 +41,22 @@ def task1_2(architecture_name, video_path, annotations, run_name, finetune, trai
 
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
 
-    if not os.path.exists(model_folder_files):
+    if not os.path.exists(EXPERIMENTS_FOLDER):
         os.mkdir(EXPERIMENTS_FOLDER)
     if not os.path.exists(model_folder_files):
         os.mkdir(model_folder_files)
     
-    if finetune:
-        if train_model:
-            train(model, train_loader, test_loader, device, num_epochs=10, save_path=model_folder_files)
-            print("Training done")
-        else:
-            model.load_state_dict(torch.load(os.path.join(model_folder_files, "best.ckpt")))
-            model.eval()
-            mAP = evaluate(model, test_loader, device, run_name, save_path=model_folder_files)
-            print("mAP for "+run_name+" is:", mAP)
+    # if finetune:
+    #     if train_model:
+    #         train(model, train_loader, test_loader, device, num_epochs=10, save_path=model_folder_files)
+    #         print("Training done")
+    #     else:
+    #         model.load_state_dict(torch.load(os.path.join(model_folder_files, "best.ckpt")))
+    #         model.eval()
+    #         mAP = evaluate(model, test_loader, device, run_name, save_path=model_folder_files)
+    #         print("mAP for "+run_name+" is:", mAP)
     else:
-        mAP = evaluate(model, test_loader, device, run_name, save_path=model_folder_files)
+        mAP = evaluate(model, test_loader, device, save_path=model_folder_files)
         print("mAP for "+run_name+" is:", mAP)
     
 def parse_arguments():
@@ -102,4 +103,7 @@ if __name__ == "__main__":
     mAP = voc_eval([frame_ids, tot_boxes, confidences], annotations, ovthresh=0.5)
     print("Model ["+architecture_name+"] mAP:", mAP)
     
-    
+
+"""
+python3 week3/task1_2.py -v /home/aszummer/Documents/MCV/M6/mcvm6team3/data/AICity_data/AICity_data/train/S03/c010/vdo.avi -a /home/aszummer/Documents/MCV/M6/mcvm6team3/data/ai_challenge_s03_c010-full_annotation.xml -n FasterRCNN -g -r "test"
+"""

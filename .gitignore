@@ -131,3 +131,7 @@ dmypy.json
 # Folders
 lab1-data
 experiments
+data
+bg_gaussian_data
+*.csv
+*.png
