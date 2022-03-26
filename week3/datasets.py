@@ -38,13 +38,13 @@ class AICityDataset(torch.utils.data.Dataset):
 def collate_dicts_fn(batch):
     return tuple(zip(*batch))
     
-def create_dataloaders(annotations, video_path, train_idxs, test_idxs, transformations):
+def create_dataloaders(annotations, video_path, train_idxs, test_idxs, transformations, batch_size):
     # use our dataset and defined transformations
     train_dataset = AICityDataset(annotations, video_path, train_idxs, transformations=transformations)
     test_dataset = AICityDataset(annotations, video_path, test_idxs, transformations=transformations)
 
     # define training and validation data loaders
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
 
     return train_loader, test_loader
