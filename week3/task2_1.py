@@ -33,16 +33,17 @@ FRAME_25PER = 510
 EXPERIMENTS_FOLDER = "experiments"
 STORED_DETECTIONS_NAME = "dets.txt"
 SHOW_THR = 0.5
+RESULTS_FILENAME = "results"
 
 
-def task2_1(architecture_name, video_path, annotations, run_name, first_frame=0, use_gpu=True, display=True):
+def task2_1(architecture_name, video_path, annotations, run_name, args, first_frame=0, use_gpu=True, display=True):
     """
     Object tracking: tracking by overlap
     3 parameters: detection threshold, minimum iou to match track, and maximum frames to skip between tracked boxes.
     """
-    detection_threshold = 0.4
-    min_iou = 0.3
-    max_frames_skip = 0
+    detection_threshold = args.det_thr
+    min_iou = args.min_iou
+    max_frames_skip = args.frame_skip
     track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
 
     # Prepare model
@@ -71,6 +72,7 @@ def task2_1(architecture_name, video_path, annotations, run_name, first_frame=0,
     
     if exists_det_file:
         # Read detection files
+        print("Reading detections file")
         model_detections = utils.parse_predictions_rects(det_path)
     
     with torch.no_grad():
@@ -111,8 +113,14 @@ def task2_1(architecture_name, video_path, annotations, run_name, first_frame=0,
                     k = cv2.waitKey(1)
                     if k == ord('q'):
                         return
+                    
+                    if SAVE:
+                        track_exp_name = f"tracking_t{detection_threshold:03f}_i{min_iou}_fs{max_frames_skip}"
+                        path_to_res_folder = os.path.join(model_folder_files, RESULTS_FILENAME, track_exp_name)
+                        os.makedirs(path_to_res_folder,exist_ok=True)
+                        cv2.imwrite(path_to_res_folder+'/image_'+str(frame_number-first_frame).zfill(4)+'.jpg', cv2.resize(img_draw, tuple(np.int0(0.5*np.array(img_draw.shape[:2][::-1])))))
                         
-                frame_number += 1        
+                frame_number += 1
                 ret, img = cap.read()
                 pbar.update(1)
                 
@@ -157,12 +165,29 @@ def parse_arguments():
                         required=True,
                         type=str,
                         help="Run name of finetuned car detector experiment")
+    
+    # Tracking parameters
+    parser.add_argument("-det_thr",
+                        dest="det_thr",
+                        type=float,
+                        default=0.8,
+                        help="Detection threshold for the car detector")
+    parser.add_argument("-min_iou",
+                        dest="min_iou",
+                        default=0.4,
+                        type=float,
+                        help="Run name of finetuned car detector experiment")
+    parser.add_argument("-fs",
+                        dest="frame_skip",
+                        default=5,
+                        type=int,
+                        help="Number of frames for which a track is still considerated lived")
     args = parser.parse_args()
 
-    return args.input_video, args.annotations, args.architecture_name, args.display, args.use_gpu, args.run_name
+    return args.input_video, args.annotations, args.architecture_name, args.display, args.use_gpu, args.run_name, args
     
 if __name__ == "__main__":
-    input_video, annotations_path, architecture_name, display, use_gpu, run_name = parse_arguments()
+    input_video, annotations_path, architecture_name, display, use_gpu, run_name, args = parse_arguments()
     annotations = read_annotations(annotations_path)
-    task2_1(architecture_name, input_video, annotations, run_name, first_frame=0, use_gpu=use_gpu, display=display)
+    task2_1(architecture_name, input_video, annotations, run_name, args, first_frame=0, use_gpu=use_gpu, display=display)
     

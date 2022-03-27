@@ -52,7 +52,7 @@ class TrackHandlerOverlap(TrackHandler):
         # Update live / terminated tracks 
         for track in self.live_tracks:
             _, last_frame_number = track.last_detection()
-            if frame_number - last_frame_number <= self.max_frame_skip+1:
+            if abs(frame_number - last_frame_number) <= self.max_frame_skip+1:
                 new_live_tracks.append(track)
             else:
                 self.terminated_tracks.append(track)
