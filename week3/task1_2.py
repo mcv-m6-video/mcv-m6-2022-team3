@@ -34,7 +34,14 @@ def task1_2(architecture_name, video_path, annotations, run_name, finetune, trai
     Finetune object detector
     """
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    transformations = torchvision.transforms.ToTensor()
+    
+    transformations = torchvision.transforms.Compose([
+                        torchvision.transforms.ToTensor(),
+                        torchvision.transforms.RandomAutocontrast(p=0.5),
+                        torchvision.transforms.RandomHorizontalFlip(p=0.5)]
+                        )
+    # transformations = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
+
     train_idxs, test_idxs = np.arange(0, FRAME_25PER), np.arange(FRAME_25PER, FRAME_25PER*4)
     train_loader, test_loader = create_dataloaders(annotations, video_path, train_idxs, test_idxs, transformations, 
                                                     batch_size=2)

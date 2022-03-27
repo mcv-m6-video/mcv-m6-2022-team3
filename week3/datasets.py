@@ -41,6 +41,7 @@ def collate_dicts_fn(batch):
 def create_dataloaders(annotations, video_path, train_idxs, test_idxs, transformations, batch_size):
     # use our dataset and defined transformations
     train_dataset = AICityDataset(annotations, video_path, train_idxs, transformations=transformations)
+    transformations = torchvision.transforms.ToTensor()
     test_dataset = AICityDataset(annotations, video_path, test_idxs, transformations=transformations)
 
     # define training and validation data loaders
