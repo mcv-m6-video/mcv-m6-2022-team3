@@ -53,12 +53,12 @@ def task1_2(architecture_name, video_path, annotations, run_name, finetune, trai
     print("Initial mAP:", mAP)
 
     log_bool=True
-    num_epochs = 3
+    num_epochs = 10
     batch_size = 2
 
     if finetune:
         if train_model:
-            train(model, train_loader, test_loader, device, annotations, 
+            train(model, train_loader, test_loader, device, annotations, architecture_name,
                          num_epochs=num_epochs, 
                          batch_size=batch_size,
                          save_path=model_folder_files, log_bool=log_bool, run_name=run_name)
