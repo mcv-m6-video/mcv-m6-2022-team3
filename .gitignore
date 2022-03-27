@@ -135,3 +135,6 @@ data
 bg_gaussian_data
 *.csv
 *.png
+*.gif
+.vscode
+wandb

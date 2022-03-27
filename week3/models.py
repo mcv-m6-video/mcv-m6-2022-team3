@@ -104,7 +104,7 @@ def warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor):
 
     return torch.optim.lr_scheduler.LambdaLR(optimizer, f)
 
-def train(model, train_loader, test_loader, device, annotations, 
+def train(model, train_loader, test_loader, device, annotations, architecture_name,
                  num_epochs=1,
                  batch_size=1,
                  save_path=None, log_bool=False, run_name='test'):
@@ -116,20 +116,28 @@ def train(model, train_loader, test_loader, device, annotations,
             # wandb.run.save()
 
     lr = 0.02
-
     print_freq = 10
     params = [p for p in model.parameters() if p.requires_grad]
     print("Params to train:", len(params))
     optimizer = torch.optim.SGD(params, lr=lr, momentum=0.9, weight_decay=0.0005)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+
+    if (architecture_name == 'SSD') or (architecture_name == 'SSDlite'):
+        lr = 0.00004
+        optimizer = torch.optim.SGD(params, lr=lr, momentum=0.9, weight_decay=0.0005)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+
+
     mAPs = [0]
 
-    if log_bool:
-        wandb.config = {
+    config_dict = {
             "learning_rate": lr,
             "epochs": num_epochs,
             "batch_size": batch_size
         }
+
+    if log_bool:
+        wandb.config = config_dict
 
     # TODO: Add tensorboard logging or something
     for epoch in range(num_epochs):
@@ -185,7 +193,7 @@ def train(model, train_loader, test_loader, device, annotations,
                     log_dict[k]=v
 
             print("log_dict = ", log_dict)
-            print("config_dict = ")
+            print("config_dict = ", config_dict)
             if log_bool:
                 wandb.log(log_dict)
             
