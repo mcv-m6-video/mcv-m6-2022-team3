@@ -27,6 +27,7 @@ from models import load_model
 from tracks import TrackHandlerOverlap
 from sort import Sort
 from sort import convert_x_to_bbox
+import motmetrics as mm
 
 WAIT_TIME = 1
 SAVE = True
@@ -72,6 +73,9 @@ def task2_1(architecture_name, video_path, annotations, run_name, args, first_fr
     # Check if detections have been saved previously
     det_path = os.path.join(model_folder_files, STORED_DETECTIONS_NAME)
     exists_det_file = os.path.exists(det_path)
+
+    # Create metrics accumulator
+    acc = mm.MOTAccumulator(auto_id=True)
     
     if exists_det_file:
         # Read detection files
@@ -103,6 +107,18 @@ def task2_1(architecture_name, video_path, annotations, run_name, args, first_fr
                 # Update tracker
                 dets = track_handler.update(dets_keep)
 
+                gt_this_frame = [gt[4] for gt in annotations[frame_number]]
+                dets_this_frame = [int(det[4]) for det in dets]
+                dets_centers = np.vstack([(dets[:,0]+dets[:,2])/2, (dets[:,1]+dets[:,3])/2]).T
+                gt = np.array(annotations[frame_number])
+                gt_centers = np.vstack([(gt[:,0]+gt[:,2])/2, (gt[:,1]+gt[:,3])/2]).T
+                dists = scipy.spatial.distance_matrix(dets_centers, gt_centers).T.tolist()
+                acc.update(
+                    gt_this_frame,
+                    dets_this_frame,
+                    dists
+                )
+
                 if display:
                     img_draw = img.copy()
                     for track in track_handler.trackers:
@@ -125,7 +141,7 @@ def task2_1(architecture_name, video_path, annotations, run_name, args, first_fr
                         path_to_res_folder = os.path.join(model_folder_files, RESULTS_FILENAME, track_exp_name)
                         os.makedirs(path_to_res_folder,exist_ok=True)
                         cv2.imwrite(path_to_res_folder+'/image_'+str(frame_number-first_frame).zfill(4)+'.jpg', cv2.resize(img_draw, tuple(np.int0(0.5*np.array(img_draw.shape[:2][::-1])))))
-                        
+
                 frame_number += 1
                 ret, img = cap.read()
                 pbar.update(1)
