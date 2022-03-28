@@ -115,6 +115,7 @@ def parse_xml_reacts(path_to_anno, discard_parked=True):
     tracks_all = Bs_data.find_all('track')
     frame_dict = {}
     for item in tqdm(tracks_all):
+        track_id = int(item.get('id'))
         if item.get('label') == 'car':
             boxs_in_track = item.find_all('box')
             for box in boxs_in_track:
@@ -125,13 +126,13 @@ def parse_xml_reacts(path_to_anno, discard_parked=True):
                         if frame_n not in frame_dict:
                             frame_dict[frame_n] = []
                         frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
-                            float(box.get('xbr')), float(box.get('ybr'))])
+                            float(box.get('xbr')), float(box.get('ybr')), track_id])
                 else:
                     frame_n = int(box.get('frame'))
                     if frame_n not in frame_dict:
                         frame_dict[frame_n] = []
                     frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
-                        float(box.get('xbr')), float(box.get('ybr'))])
+                        float(box.get('xbr')), float(box.get('ybr')), track_id])
                     
     return frame_dict
 

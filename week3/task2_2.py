@@ -11,6 +11,8 @@ from tkinter import E
 import cv2
 import numpy as np
 from argparse import ArgumentParser
+
+import scipy
 from utils import read_annotations, image_to_tensor
 from evaluation import show_annotations_and_predictions, voc_eval
 import os
@@ -99,8 +101,8 @@ def task2_1(architecture_name, video_path, annotations, run_name, args, first_fr
                 dets_keep = np.hstack([dets_keep, final_scores[final_scores > detection_threshold][:,np.newaxis]])
 
                 # Update tracker
-                det = track_handler.update(dets_keep)
-                
+                dets = track_handler.update(dets_keep)
+
                 if display:
                     img_draw = img.copy()
                     for track in track_handler.trackers:
