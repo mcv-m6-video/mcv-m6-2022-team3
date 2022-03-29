@@ -56,7 +56,7 @@ The contents of the second week are in the folder `week3`:
 
 Task 1.1 evaluates mAP on off-the-shelf detectors:
 ```
-usage: task1_1.py -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME [-d] [-g]
+usage: python task1_1.py -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME [-d] [-g]
 
 optional arguments:
   -v INPUT_VIDEO        Input video for analyzing mIou/mAP
@@ -72,3 +72,17 @@ Task 1.2 finetunes and evaluates finetuned detectors on part of the sequence:
 ...
 ```
 Example: python week3/task1_2.py -v /home/sergio/MCV/M6/data/AICity_data/train/S03/c010/vdo.avi -a /home/sergio/MCV/M6/data/ai_challenge_s03_c010-full_annotation.xml -n FasterRCNN -g -r fasterRCNN_finetune -t
+
+Task 1.3 can be used to apply different strategies of cross-validation when fine-tuning a given model:
+```
+usage: python task1_3.py -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME -r RUN_NAME [-s STRATEGY] [-g] [-t]
+
+optional arguments:
+  -v INPUT_VIDEO        Input video for analyzing mIou/mAP
+  -a ANNOTATIONS        XML Groundtruth annotations
+  -n ARCHITECTURE_NAME  Architecture name. Options: FasterRCNN / MaskRCNN / ...
+  -r RUN_NAME           Name of the experiment
+  -s STRATEGY           Strategy used for cross-validation. Options: A, B, C. A by default
+  -g                    Use GPU for model inference
+  -t                    Specify to train, otherwise will evaluate
+```
