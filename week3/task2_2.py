@@ -24,7 +24,6 @@ import sys
 
 import torch
 from models import load_model
-from tracks import TrackHandlerOverlap
 from sort import Sort
 from sort import convert_x_to_bbox
 import motmetrics as mm
@@ -39,7 +38,7 @@ SHOW_THR = 0.5
 RESULTS_FILENAME = "results"
 
 
-def task2_1(architecture_name, video_path, annotations, run_name, args, first_frame=0, use_gpu=True, display=True):
+def task2_2(architecture_name, video_path, annotations, run_name, args, first_frame=0, use_gpu=True, display=True):
     """
     Object tracking: tracking by overlap
     3 parameters: detection threshold, minimum iou to match track, and maximum frames to skip between tracked boxes.
@@ -54,9 +53,10 @@ def task2_1(architecture_name, video_path, annotations, run_name, args, first_fr
     model, device = load_model(architecture_name, use_gpu)
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
     ckpt_path = os.path.join(model_folder_files, run_name+"_best.ckpt")
-    #if not os.path.exists(ckpt_path):
-    #    raise Exception("No pretrained weights for this experiment name.")
-    #model.load_state_dict(torch.load(ckpt_path))
+    if not os.path.exists(ckpt_path):
+        print("No pretrained weights for this experiment name.")
+    else:
+        model.load_state_dict(torch.load(ckpt_path))
     model.eval()
     
     # Prepare video capture
@@ -153,6 +153,10 @@ def task2_1(architecture_name, video_path, annotations, run_name, args, first_fr
                             f.write(f'{frame_number}, -1, {detection[0]}, {detection[1]}, {detection[2]-detection[0]}, {detection[3]-detection[1]}, {final_scores[idx]}, -1, -1, -1\n')
 
     # TODO: When IDF1 is implemented evaluate with different hyperparameters
+    mh = mm.metrics.create()
+    summary = mh.compute(acc, metrics=mm.metrics.motchallenge_metrics, name='acc')
+    print(summary)
+
     cv2.destroyAllWindows()
 
 def parse_arguments():
@@ -211,5 +215,5 @@ def parse_arguments():
 if __name__ == "__main__":
     input_video, annotations_path, architecture_name, display, use_gpu, run_name, args = parse_arguments()
     annotations = read_annotations(annotations_path)
-    task2_1(architecture_name, input_video, annotations, run_name, args, first_frame=0, use_gpu=use_gpu, display=display)
+    task2_2(architecture_name, input_video, annotations, run_name, args, first_frame=0, use_gpu=use_gpu, display=display)
     

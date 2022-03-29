@@ -9,9 +9,9 @@ import imageio
 
 from tkinter import E
 import cv2
-from cv2 import cvtColor
 import numpy as np
 from argparse import ArgumentParser
+from scipy import spatial
 from utils import read_annotations, image_to_tensor
 from evaluation import show_annotations_and_predictions, voc_eval
 import os
@@ -25,6 +25,7 @@ import sys
 import torch
 from models import load_model
 from tracks import TrackHandlerOverlap
+import motmetrics as mm
 
 WAIT_TIME = 1
 SAVE = True
@@ -69,6 +70,9 @@ def task2_1(architecture_name, video_path, annotations, run_name, args, first_fr
     # Check if detections have been saved previously
     det_path = os.path.join(model_folder_files, STORED_DETECTIONS_NAME)
     exists_det_file = os.path.exists(det_path)
+
+    # Create metrics accumulator
+    acc = mm.MOTAccumulator(auto_id=True)
     
     if exists_det_file:
         # Read detection files
@@ -97,7 +101,21 @@ def task2_1(architecture_name, video_path, annotations, run_name, args, first_fr
                 dets_keep = final_dets[final_scores > detection_threshold]
                 # Update tracker
                 track_handler.update_tracks(dets_keep, frame_number)
-                
+
+                # Accumulate detection+tracking metrics
+                gt_this_frame = [gt[4] for gt in annotations[frame_number]]
+                dets_this_frame = [int(track.id) for track in track_handler.live_tracks]
+                dets = np.array([track.last_detection()[0] for track in track_handler.live_tracks])
+                dets_centers = np.vstack([(dets[:,0]+dets[:,2])/2, (dets[:,1]+dets[:,3])/2]).T
+                gt = np.array(annotations[frame_number])
+                gt_centers = np.vstack([(gt[:,0]+gt[:,2])/2, (gt[:,1]+gt[:,3])/2]).T
+                dists = spatial.distance_matrix(dets_centers, gt_centers).T.tolist()
+                acc.update(
+                    gt_this_frame,
+                    dets_this_frame,
+                    dists
+                )
+
                 if display:
                     img_draw = img.copy()
                     for track in track_handler.live_tracks:
@@ -131,6 +149,10 @@ def task2_1(architecture_name, video_path, annotations, run_name, args, first_fr
                             f.write(f'{frame_number}, -1, {detection[0]}, {detection[1]}, {detection[2]-detection[0]}, {detection[3]-detection[1]}, {final_scores[idx]}, -1, -1, -1\n')
 
     # TODO: When IDF1 is implemented evaluate with different hyperparameters
+    mh = mm.metrics.create()
+    summary = mh.compute(acc, metrics=mm.metrics.motchallenge_metrics, name='acc')
+    print(summary)
+
     cv2.destroyAllWindows()
 
 def parse_arguments():
