@@ -125,14 +125,22 @@ def parse_xml_reacts(path_to_anno, discard_parked=True, return_ids=False):
                         frame_n = int(box.get('frame'))
                         if frame_n not in frame_dict:
                             frame_dict[frame_n] = []
-                        frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
-                            float(box.get('xbr')), float(box.get('ybr')), track_id])
+                        if return_ids:
+                            frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
+                                float(box.get('xbr')), float(box.get('ybr')), track_id])
+                        else:
+                            frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
+                                float(box.get('xbr')), float(box.get('ybr'))])
                 else:
                     frame_n = int(box.get('frame'))
                     if frame_n not in frame_dict:
                         frame_dict[frame_n] = []
-                    frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
-                        float(box.get('xbr')), float(box.get('ybr')), track_id])
+                    if return_ids:
+                        frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
+                            float(box.get('xbr')), float(box.get('ybr')), track_id])
+                    else:
+                        frame_dict[frame_n].append([float(box.get('xtl')), float(box.get('ytl')),
+                            float(box.get('xbr')), float(box.get('ybr'))])
                     
     return frame_dict
 
