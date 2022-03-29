@@ -97,7 +97,7 @@ def generate_noisy_bboxes(gt_bboxes, rank=10, std_coords=0, resizing_factor=1, p
     # Return in required format for evaluation
     return frame_ids, tot_boxes, confidences
 
-def parse_xml_reacts(path_to_anno, discard_parked=True):
+def parse_xml_reacts(path_to_anno, discard_parked=True, return_ids=False):
 
     # Reading the data inside the xml
     # file to a variable under the name
@@ -177,11 +177,11 @@ def predictions_to_gt_format(frame_ids, tot_boxes):
         preds_formatted[i] = tot_boxes[frame_ids == i]
     return preds_formatted
 
-def read_annotations(annotations):
+def read_annotations(annotations, return_ids=False):
     # gt_rect format: 
     # {frame_number: [[x_min1, y_min1, x_max1, y_max1], [x_min2, y_min2, x_max2, y_max2], [], ...], ...}
     print("Reading annotations from:", annotations)
-    gt_rect = parse_xml_reacts(annotations, discard_parked=False)
+    gt_rect = parse_xml_reacts(annotations, discard_parked=False, return_ids=return_ids)
     return gt_rect
 
 def image_to_tensor(img, device):

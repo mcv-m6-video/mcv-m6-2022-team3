@@ -214,6 +214,6 @@ def parse_arguments():
     
 if __name__ == "__main__":
     input_video, annotations_path, architecture_name, display, use_gpu, run_name, args = parse_arguments()
-    annotations = read_annotations(annotations_path)
+    annotations = read_annotations(annotations_path, return_ids=True)
     task2_2(architecture_name, input_video, annotations, run_name, args, first_frame=0, use_gpu=use_gpu, display=display)
     
