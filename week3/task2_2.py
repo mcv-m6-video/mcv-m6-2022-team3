@@ -57,6 +57,7 @@ def task2_2(architecture_name, video_path, annotations, run_name, args, first_fr
         print("No pretrained weights for this experiment name.")
     else:
         model.load_state_dict(torch.load(ckpt_path))
+        print(f"Model {run_name} loaded")
     model.eval()
     
     # Prepare video capture
