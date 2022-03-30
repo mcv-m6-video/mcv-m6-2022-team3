@@ -56,7 +56,7 @@ The contents of the second week are in the folder `week3`:
 
 ### Task 1.1 evaluates mAP on off-the-shelf detectors:
 ```
-usage: task1_1.py -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME [-d] [-g]
+usage: python task1_1.py -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME [-d] [-g]
 
 optional arguments:
   -v INPUT_VIDEO        Input video for analyzing mIou/mAP
