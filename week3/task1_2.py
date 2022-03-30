@@ -60,7 +60,7 @@ def task1_2(architecture_name, video_path, annotations, run_name, finetune, trai
     print("Initial mAP:", mAP)
 
     log_bool=True
-    num_epochs = 10
+    num_epochs = 30
     batch_size = 2
 
     if finetune:

@@ -54,7 +54,7 @@ optional arguments:
 ## Week 3
 The contents of the second week are in the folder `week3`:
 
-Task 1.1 evaluates mAP on off-the-shelf detectors:
+### Task 1.1 evaluates mAP on off-the-shelf detectors:
 ```
 usage: task1_1.py -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME [-d] [-g]
 
@@ -67,8 +67,30 @@ optional arguments:
 ```
 Example: python week3/task1_1.py -v /home/sergio/MCV/M6/data/AICity_data/train/S03/c010/vdo.avi -a /home/sergio/MCV/M6/data/ai_challenge_s03_c010-full_annotation.xml -n FasterRCNN -g
 
-Task 1.2 finetunes and evaluates finetuned detectors on part of the sequence:
+### Task 1.2 finetunes and evaluates finetuned detectors on part of the sequence:
+```
+optional arguments:
+  -v INPUT_VIDEO        Input video for analyzing mIou/mAP
+  -a ANNOTATIONS        XML Groundtruth annotations
+  -n ARCHITECTURE_NAME  Architecture name. Options: FasterRCNN / MaskRCNN / ...
+  -d                    Display predictions over the video
+  -g                    Use GPU for model inference
+  -t                    train
+  -r                    name of the run
 ```
 ...
 ```
 Example: python week3/task1_2.py -v /home/sergio/MCV/M6/data/AICity_data/train/S03/c010/vdo.avi -a /home/sergio/MCV/M6/data/ai_challenge_s03_c010-full_annotation.xml -n FasterRCNN -g -r fasterRCNN_finetune -t
+```
+
+List of architectures available to run:
+- MaskRCNN
+- FasterRCNN
+- FasterRCNN_mobile
+- RetinaNet
+- SSD
+- SSDlite
+- FCOS
+
+Train parameters are to be set in the code in the model.py file in train function.
+If you wish to see the interminent log in a dashboard you need to create account in wandb.ai and provide your username in WANDB_ENTITY parameter meanwhile all results are printed in the console as well.

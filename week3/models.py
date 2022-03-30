@@ -21,15 +21,14 @@ def load_model(architecture_name, use_gpu, finetune=False, trainable_backbone_la
             in_features = model.roi_heads.box_predictor.cls_score.in_features
     #         # Keep first 4 classes so that car is still classified as class 3
     #         model.roi_heads.box_predictor = torchvision.models.detection.faster_rcnn.FastRCNNPredictor(in_features, 4)
+    elif architecture_name == 'FasterRCNN_mobile':
+        model = torchvision.models.detection.fasterrcnn_mobilenet_v3_large_fpn(pretrained=True,pretrained_backbone=True,trainable_backbone_layers=trainable_backbone_layers)
     elif architecture_name == 'MaskRCNN':
         model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True,pretrained_backbone=True,trainable_backbone_layers=trainable_backbone_layers)
         if finetune == False:
             model.roi_heads.mask_roi_pool = None
             model.roi_heads.mask_head = None
             model.roi_heads.mask_predictor = None
-            path = '/home/aszummer/Documents/MCV/M6/mcvm6team3/week3/experiments/test_MASKRCNN_augment/test_MASKRCNN_augment_best.ckpt'
-            model.load_state_dict(torch.load(path))
-            print('model loaded checkoint')
         if finetune:
             model.roi_heads.mask_roi_pool = None
             model.roi_heads.mask_head = None
@@ -123,17 +122,18 @@ def train(model, train_loader, test_loader, device, annotations, architecture_na
         wandb.run.name = run_name
             # wandb.run.save()
 
-    lr = 0.0002
+    lr = 0.02
+    step_size = 7
     print_freq = 10
     params = [p for p in model.parameters() if p.requires_grad]
     print("Params to train:", len(params))
     optimizer = torch.optim.SGD(params, lr=lr, momentum=0.9, weight_decay=0.0005)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=0.1)
 
     if (architecture_name == 'SSD') or (architecture_name == 'SSDlite'):
-        lr = 0.0004
+        lr = 0.02
         optimizer = torch.optim.SGD(params, lr=lr, momentum=0.9, weight_decay=0.0005)
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=0.1)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 
@@ -142,7 +142,8 @@ def train(model, train_loader, test_loader, device, annotations, architecture_na
     config_dict = {
             "learning_rate": lr,
             "epochs": num_epochs,
-            "batch_size": batch_size
+            "batch_size": batch_size,
+            "step_size": step_size
         }
 
     if log_bool:
