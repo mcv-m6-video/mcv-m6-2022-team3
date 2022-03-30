@@ -94,3 +94,34 @@ List of architectures available to run:
 
 Train parameters are to be set in the code in the model.py file in train function.
 If you wish to see the interminent log in a dashboard you need to create account in wandb.ai and provide your username in WANDB_ENTITY parameter meanwhile all results are printed in the console as well.
+
+### Task 1.3 can be used to apply different strategies of cross-validation when fine-tuning a given model:
+
+usage: 
+```
+python task1_3.py -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME -r RUN_NAME [-s STRATEGY] [-g] [-t]
+
+optional arguments:
+  -v INPUT_VIDEO        Input video for analyzing mIou/mAP
+  -a ANNOTATIONS        XML Groundtruth annotations
+  -n ARCHITECTURE_NAME  Architecture name. Options: FasterRCNN / MaskRCNN / ...
+  -r RUN_NAME           Name of the experiment
+  -s STRATEGY           Strategy used for cross-validation. Options: A, B, C. A by default
+  -g                    Use GPU for model inference
+  -t                    Specify to train, otherwise will evaluate
+```
+
+### Task 2.1 and 2.2 can be used to perform tracking over the video sequence, using either Maximum Overlap (2.1) or a Kalman filter (2.2):
+
+usage: 
+```
+python [task2_1.py|task2_2.py] -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME -r RUN_NAME [-g] [-d]
+
+optional arguments:
+  -v INPUT_VIDEO        Input video for analyzing mIou/mAP
+  -a ANNOTATIONS        XML Groundtruth annotations
+  -n ARCHITECTURE_NAME  Architecture name. Options: FasterRCNN / MaskRCNN / ...
+  -r RUN_NAME           Name of the experiment
+  -g                    Use GPU for model inference
+  -d                    Display the tracked boxes and history
+```
