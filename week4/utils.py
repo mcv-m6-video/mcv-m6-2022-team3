@@ -276,6 +276,17 @@ class OpticalFlow:
         return mask, u, v
 
 
+def load_optical_flow(img_path):
+        flow_data = cv2.imread(img_path, cv2.IMREAD_UNCHANGED).astype('float')
+        mask = (flow_data[:,:,0]).astype('bool')
+        v = (flow_data[:,:,1] - 2**15)/64
+        u = (flow_data[:,:,2] - 2**15)/64
+
+        return mask, u, v
+
+from PIL import Image
+import matplotlib.pyplot as plt
+
 def display_OpticalFlow(image, u, v, name, type_plot, divisor=3, h_parts=14, v_parts=4, plot=False):
     """
     Save image with a visualisation of a flow over the top.
@@ -327,6 +338,8 @@ def OpticalFlow_arrows(image, flow, divisor, name):
     Imax = int(picture_shape[0]/divisor)
     Jmax = int(picture_shape[1]/divisor)
 
+    max_val = np.sqrt(np.max(flow[:,:,0].reshape(-1)**2 + flow[:,:,1].reshape(-1)**2))
+
     # draw the arrows into the image
     for i in range(1, Imax):
         for j in range(1, Jmax):
@@ -336,10 +349,13 @@ def OpticalFlow_arrows(image, flow, divisor, name):
             Y2 = int(Y1 + flow[X1,Y1,0])
             X2 = np.clip(X2, 0, picture_shape[0])
             Y2 = np.clip(Y2, 0, picture_shape[1])
-            #add all the lines to the image
-            image = cv2.arrowedLine(image, (Y1,X1),(Y2,X2), [255, 255, 0], 1)
 
-    # save image
+            magnitude = np.sqrt(flow[X1,Y1,1]**2 + flow[X1,Y1,0]**2)
+            col = int(255 * (magnitude / max_val))
+            
+            #add all the lines to the image
+            image = cv2.arrowedLine(image, (Y1,X1),(Y2,X2), [255, col, 0], int(1 + 6*(col/255)))
+
     cv2.imwrite(name, image)
 
 
