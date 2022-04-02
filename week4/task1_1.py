@@ -41,8 +41,12 @@ def task1_1():
         print(f"motion type {motion_type}, search area {search_area}, block size {block_size}, step size {step_size}, kind {kind} | MSEN:", msen, "PEPN:", pepn)
         data.append([motion_type, search_area, block_size, step_size, kind, t1 - t0, msen, pepn])
 
-    df = pd.DataFrame(data, columns=["motion_type", "search_area", "block_size","step_size","kind", "exe_time", "msen", "pepn"])
+    df = pd.DataFrame(data, columns=["motion_type", "search_area", "block_size", "step_size", "kind", "exe_time", "msen", "pepn"])
     df.to_csv("results.csv", index=None, sep=',')
+    
+def task1_2():
+    # Evaluate Optical Flow algorithms
+    a = 4
     
 if __name__ == "__main__":
     task1_1()
