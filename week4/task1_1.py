@@ -22,11 +22,11 @@ def task1_1():
     _, u, v = load_optical_flow('imgs/LKflow_000045_10.png')
 
     # Parameter combinations
-    motion_types = ["forward", "backward"]
-    search_areas = [16,24]
-    block_sizes = [16]
+    motion_types = ["forward"]
+    search_areas = [64]
+    block_sizes = [32]
     step_sizes= [1]
-    kinds = ['ssd']
+    kinds = ['ncc']
     os.makedirs("results", exist_ok=True)
 
     data = []
@@ -37,7 +37,7 @@ def task1_1():
         u, v = flow[:,:,0], flow[:,:,1]
         t1 = time()
         msen, pepn = eval_opticalflow(u, v, u_gt, v_gt, mask)
-        display_OpticalFlow(img_prev, u, v, f"results/arrows_seq045_m{motion_type}_s{search_area}_b{block_size}_st{step_size}_k{kind}.png", "arrows", divisor=16, plot=False)
+        display_OpticalFlow(img_prev, u, v, f"results/arrows_col_seq045_m{motion_type}_s{search_area}_b{block_size}_st{step_size}_k{kind}.png", "color_wheel", divisor=16, plot=False)
         print(f"motion type {motion_type}, search area {search_area}, block size {block_size}, step size {step_size}, kind {kind} | MSEN:", msen, "PEPN:", pepn)
         data.append([motion_type, search_area, block_size, step_size, kind, t1 - t0, msen, pepn])
 
