@@ -52,7 +52,7 @@ optional arguments:
 ```
 
 ## Week 3
-The contents of the second week are in the folder `week3`:
+The contents of the third week are in the folder `week3`:
 
 ### Task 1.1 evaluates mAP on off-the-shelf detectors:
 ```
@@ -125,3 +125,28 @@ optional arguments:
   -g                    Use GPU for model inference
   -d                    Display the tracked boxes and history
 ```
+
+## Week 4
+The contents of the fourth week are in the folder `week4`:
+
+
+### Task 1.1 optical flow with block matching:
+```
+usage: python task1_1.py
+```
+Runs with optimal parameters that have been found using notebook.ipynb grid search that took 1200 min
+
+### Task 1.2 off-the-shelf optical flow:
+For Farne Back and Horn Schunk run:
+
+```
+usage: python task1_2.py -n -r
+
+optional arguments:
+  - n                   number of runs
+  - r                   random parameters search
+```
+
+For PyFlow run as per ReadMe in Pyflow folder
+
+For MaskFlowNet run as per ReadMe in MaskFlowNet
