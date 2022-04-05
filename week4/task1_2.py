@@ -39,7 +39,7 @@ def task1_2(random_params, run_times):
             t1 = time()
             msen, pepn = eval_opticalflow(u, v, u_gt, v_gt, mask)
             print(f"Method '{optical_flow_method_name}' | MSEN:", msen, "PEPN:", pepn)
-            display_OpticalFlow(img_prev, u, v, f"results/{optical_flow_method_name}_{optical_flow_method.return_params_string()}.png", "arrows", divisor=16, plot=False)
+            display_OpticalFlow(img_prev, u, v, f"results/{optical_flow_method_name}_PEPN_{pepn}_{optical_flow_method.return_params_string()}.png", "arrows", divisor=16, plot=False)
             data.append([optical_flow_method_name, optical_flow_method.return_params_string(), t1 - t0, msen, pepn])
 
     df = pd.DataFrame(data, columns=["method_name", "params", "exe_time", "msen", "pepn"])
