@@ -44,7 +44,7 @@ class HornSchunk(OpticalFlowEstimator):
         # Niter: int      number of iteration
         if random_params:
             self.alpha = np.random.uniform(0.01, 100, 1)[0]
-            self.Niter = 100
+            self.Niter = np.random.randint(50,100)
         else:
             self.alpha = 10
             self.Niter = 100
