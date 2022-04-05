@@ -33,7 +33,7 @@ def finetune(architecture_name, dataset_path, sequences, run_name, use_gpu=True)
                         )
     # transformations = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
 
-    train_dataset = AICityDataset(dataset_path, sequences, transformations=transformations
+    train_dataset = AICityDataset(dataset_path, sequences, transformations=transformations)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
     
     model, device = load_model(architecture_name, use_gpu, finetune=True)
@@ -46,28 +46,25 @@ def finetune(architecture_name, dataset_path, sequences, run_name, use_gpu=True)
     if not os.path.exists(model_folder_files):
         # os.mkdir(model_folder_files)
         os.makedirs(model_folder_files,exist_ok=True)
-    
-    #mAP = evaluate(model, test_loader, device, annotations)
-    #print("Initial mAP:", mAP)
 
     log_bool=True
     num_epochs = 30
     batch_size = 2
-
 
     train(model, train_loader, device, architecture_name,
                     num_epochs=num_epochs, 
                     batch_size=batch_size,
                     save_path=model_folder_files, log_bool=log_bool, run_name=run_name)
     print("Training done")
-    
+
+
 def parse_arguments():
     parser = ArgumentParser()
     parser.add_argument("-d",
                         dest="dataset_path",
                         required=True,
                         type=str,
-                        help="Input video for analyzing mIou/mAP")
+                        help="Path of the dataset.")
     parser.add_argument("-s",
                         dest="sequencies",
                         required=True,
@@ -98,12 +95,12 @@ def parse_arguments():
     
     args = parser.parse_args()
 
-    return args.input_video, args.annotations, args.architecture_name, args.use_gpu, args.run_name
+    return args.dataset_path, args.sequencies, args.architecture_name, args.use_gpu, args.run_name
     
 if __name__ == "__main__":
-    input_video, annotations_path, architecture_name, use_gpu, run_name= parse_arguments()
+    path_dataset, sequencies, architecture_name, use_gpu, run_name= parse_arguments()
     # (architecture_name, video_path, annotations, run_name, finetune, train_model=False, use_gpu=True)
-    finetune(architecture_name, path_dataset, sequences, run_name, use_gpu=use_gpu)
+    finetune(architecture_name, path_dataset, sequencies, run_name, use_gpu=use_gpu)
     
 
 """
