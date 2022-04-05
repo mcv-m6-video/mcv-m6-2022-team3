@@ -61,7 +61,19 @@ def iou_batch(bb_test, bb_gt):
   wh = w * h
   o = wh / ((bb_test[..., 2] - bb_test[..., 0]) * (bb_test[..., 3] - bb_test[..., 1])                                      
     + (bb_gt[..., 2] - bb_gt[..., 0]) * (bb_gt[..., 3] - bb_gt[..., 1]) - wh)                                              
-  return(o)  
+  return(o)
+
+
+def optflow_batch(bb_test, bb_gt, flow):
+  """Compute matching pixels between bboxes"""
+  ind = np.indices(flow.shape[:2]).transpose(1,2,0)
+  dist_mat = np.zeros((len(bb_test), len(bb_gt)))
+  for i, bboxA in enumerate(bb_test):
+      for j, bboxB in enumerate(bb_gt):
+          new_ind = ind[int(bboxA[0]):int(bboxA[2]), int(bboxA[1]):int(bboxA[3])] + flow[int(bboxA[0]):int(bboxA[2]), int(bboxA[1]):int(bboxA[3])].round()
+          score = (np.all(np.array([bboxB[0],  bboxB[1]]) <= new_ind, axis=2) * np.all(new_ind <= np.array([bboxB[2],  bboxB[3]]), axis=2)).sum()
+          dist_mat[i,j] = score
+  return dist_mat
 
 
 def convert_bbox_to_z(bbox):
@@ -152,7 +164,7 @@ class KalmanBoxTracker(object):
     return convert_x_to_bbox(self.kf.x)
 
 
-def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
+def associate_detections_to_trackers(detections,trackers,flow,iou_threshold = 0.3):
   """
   Assigns detections to tracked object (both represented as bounding boxes)
 
@@ -161,7 +173,13 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
   if(len(trackers)==0):
     return np.empty((0,2),dtype=int), np.arange(len(detections)), np.empty((0,5),dtype=int)
 
-  iou_matrix = iou_batch(detections, trackers)
+  #iou_matrix = iou_batch(detections, trackers)
+  iou_matrix = optflow_batch(detections, trackers, flow)
+
+  #iou_matrix = iou_batch(detections, trackers)
+  #optflow = optflow_batch(detections, trackers, flow)
+  #optflow = optflow/np.maximum(1, optflow.max(axis=1))[:,np.newaxis]
+  #iou_matrix = np.maximum(optflow, iou_matrix)
 
   if min(iou_matrix.shape) > 0:
     a = (iou_matrix > iou_threshold).astype(np.int32)
@@ -208,7 +226,7 @@ class Sort(object):
     self.trackers = []
     self.frame_count = 0
 
-  def update(self, dets=np.empty((0, 5))):
+  def update(self, dets=np.empty((0, 5)), flow=None):
     """
     Params:
       dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
@@ -230,7 +248,7 @@ class Sort(object):
     trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
     for t in reversed(to_del):
       self.trackers.pop(t)
-    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks, self.iou_threshold)
+    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks,flow,self.iou_threshold)
 
     # update matched trackers with assigned detections
     for m in matched:

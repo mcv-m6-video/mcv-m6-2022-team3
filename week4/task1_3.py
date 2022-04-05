@@ -22,8 +22,8 @@ import utils
 import sys
 
 import torch
-from sort import Sort
-from sort import convert_x_to_bbox
+from sort_opticalflow import Sort
+from sort_opticalflow import convert_x_to_bbox
 import motmetrics as mm
 
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'week3'))
