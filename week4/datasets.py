@@ -26,15 +26,16 @@ class AICityDataset(torch.utils.data.Dataset):
 
         for sequence, camera_ids in sequences.items():
             for camera_id in camera_ids:
-                cam_folder = os.path.join(path, sequence, camera_id)
-                gt = pd.read_csv(os.path.join(cam_folder, 'gt','gt.txt'),
-                                 names=['frame', 'id', 'left', 'top', 'width', 'height',
-                                        '1','2','3','4'])  # extra useless cols
-                cap = cv2.VideoCapture(os.path.join(cam_folder, 'vdo.avi'))
-                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                self.gts.append(gt)
-                self.videos.append(cap)
-                lengths.append(frame_count)
+                if os.path.isdir(cam_folder):
+                    cam_folder = os.path.join(path, sequence, camera_id)
+                    gt = pd.read_csv(os.path.join(cam_folder, 'gt','gt.txt'),
+                                    names=['frame', 'id', 'left', 'top', 'width', 'height',
+                                            '1','2','3','4'])  # extra useless cols
+                    cap = cv2.VideoCapture(os.path.join(cam_folder, 'vdo.avi'))
+                    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    self.gts.append(gt)
+                    self.videos.append(cap)
+                    lengths.append(frame_count)
         self.video_starts = np.array(lengths).cumsum()
         self.length = sum(lengths)
 
@@ -55,7 +56,7 @@ class AICityDataset(torch.utils.data.Dataset):
             return img[:,:,::-1], bboxes
         
     def __len__(self):
-        return len(self.length)
+        return self.length
     
 def collate_dicts_fn(batch):
     return tuple(zip(*batch))
