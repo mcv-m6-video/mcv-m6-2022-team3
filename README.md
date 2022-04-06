@@ -97,7 +97,7 @@ If you wish to see the interminent log in a dashboard you need to create account
 
 ### Task 1.3 can be used to apply different strategies of cross-validation when fine-tuning a given model:
 
-usage: 
+usage:
 ```
 python task1_3.py -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME -r RUN_NAME [-s STRATEGY] [-g] [-t]
 
@@ -113,7 +113,7 @@ optional arguments:
 
 ### Task 2.1 and 2.2 can be used to perform tracking over the video sequence, using either Maximum Overlap (2.1) or a Kalman filter (2.2):
 
-usage: 
+usage:
 ```
 python [task2_1.py|task2_2.py] -v INPUT_VIDEO -a ANNOTATIONS -n ARCHITECTURE_NAME -r RUN_NAME [-g] [-d]
 
@@ -150,3 +150,28 @@ optional arguments:
 For PyFlow run as per ReadMe in Pyflow folder
 
 For MaskFlowNet run as per ReadMe in MaskFlowNet
+
+
+### Task 2 Multi-target single-camera (MTSC) tracking:
+First we can fine-tune the architecture that we want with the specified sequences:
+```
+usage: python finetune.py -d DATASET_PATH -s LIST_OF_SEQUENCES -n ARCHITECTURE_NAME -r RUN_NAME [-g]
+
+optional arguments:
+  -d DATASET_PATH       Path to the dataset, train folder
+  -s LIST_OF_SEQUENCES  The sequences we want to use for training. e.g. S01 S03 S04
+  -n ARCHITECTURE_NAME  Architecture name. Options: FasterRCNN / MaskRCNN / RetinaNet ...
+  -r RUN_NAME           Name of the experiment
+  -g                    Use GPU for model inference
+```
+
+The we can evaluate the object tracking task using the SORT implementation like this:
+```
+usage: python task2.py -v INPUT_VIDEO -n ARCHITECTURE_NAME -r RUN_NAME [-g]
+
+optional arguments:
+  -v INPUT_VIDEO        Input video for analyzing mIou/mAP
+  -n ARCHITECTURE_NAME  Architecture name. Options: FasterRCNN / MaskRCNN / RetinaNet ...
+  -r RUN_NAME           Name of the experiment
+  -g                    Use GPU for model inference
+```
