@@ -165,7 +165,7 @@ optional arguments:
   -g                    Use GPU for model inference
 ```
 
-The we can evaluate the object tracking task using the SORT implementation like this:
+Then we can evaluate the object tracking task using the SORT implementation like this:
 ```
 usage: python task2.py -v INPUT_VIDEO -n ARCHITECTURE_NAME -r RUN_NAME [-g]
 
@@ -175,3 +175,4 @@ optional arguments:
   -r RUN_NAME           Name of the experiment
   -g                    Use GPU for model inference
 ```
+If we want to use a fine-tuned model, we have to use the same RUN_NAME as in `finetune.py`. 
