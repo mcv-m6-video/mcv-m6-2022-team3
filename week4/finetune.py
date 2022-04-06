@@ -1,15 +1,15 @@
 import os
 
-import numpy as np
+#import numpy as np
 
-from tkinter import E
+#from tkinter import E
 import numpy as np
 from argparse import ArgumentParser
 import os
 import torchvision
 
 import torch
-from models import load_model, train, evaluate
+from models import load_model, train#, evaluate
 from datasets import AICityDataset, collate_dicts_fn
 
 
@@ -25,7 +25,8 @@ def finetune(architecture_name, dataset_path, sequences, run_name, use_gpu=True)
     Finetune object detector
     """
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    
+    print('device:', device)
+
     transformations = torchvision.transforms.Compose([
                         torchvision.transforms.ToTensor(),
                         torchvision.transforms.RandomAutocontrast(p=0.5),
@@ -34,9 +35,11 @@ def finetune(architecture_name, dataset_path, sequences, run_name, use_gpu=True)
     # transformations = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
 
     train_dataset = AICityDataset(dataset_path, sequences, transformations=transformations)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
-    
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
+    print('loader created')
+
     model, device = load_model(architecture_name, use_gpu, finetune=True)
+    print('model loaded')
 
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
 
@@ -48,9 +51,10 @@ def finetune(architecture_name, dataset_path, sequences, run_name, use_gpu=True)
         os.makedirs(model_folder_files,exist_ok=True)
 
     log_bool=True
-    num_epochs = 30
-    batch_size = 2
+    num_epochs = 3
+    batch_size = 1
 
+    print('strating training')
     train(model, train_loader, device, architecture_name,
                     num_epochs=num_epochs, 
                     batch_size=batch_size,

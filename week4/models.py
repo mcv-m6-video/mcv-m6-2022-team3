@@ -1,4 +1,4 @@
-from argon2 import Parameters
+#from argon2 import Parameters
 import torchvision
 import torch
 import logging_utils
@@ -126,7 +126,7 @@ def train(model, train_loader, device, architecture_name,
         #wandb.run.name = run_name
             # wandb.run.save()
 
-    lr = 0.02
+    lr = 0.005
     step_size = 7
     print_freq = 10
     params = [p for p in model.parameters() if p.requires_grad]
@@ -135,7 +135,7 @@ def train(model, train_loader, device, architecture_name,
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=0.1)
 
     if (architecture_name == 'SSD') or (architecture_name == 'SSDlite'):
-        lr = 0.02
+        lr = 0.00004
         optimizer = torch.optim.SGD(params, lr=lr, momentum=0.9, weight_decay=0.0005)
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=0.1)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -157,8 +157,8 @@ def train(model, train_loader, device, architecture_name,
     # TODO: Add tensorboard logging or something
     for epoch in range(num_epochs):
         model.train()
-        metric_logger = logging_utils.MetricLogger(delimiter="  ")
-        metric_logger.add_meter('lr', logging_utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+        #metric_logger = logging_utils.MetricLogger(delimiter="  ")
+        #metric_logger.add_meter('lr', logging_utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
         header = 'Epoch: [{}]'.format(epoch)
 
         """ lr_scheduler = None
@@ -167,7 +167,9 @@ def train(model, train_loader, device, architecture_name,
             warmup_factor = 1. / warmup_iterations
             lr_scheduler = warmup_lr_scheduler(optimizer, warmup_iterations, warmup_factor) """
 
-        for images, targets in metric_logger.log_every(train_loader, print_freq, header):
+        for images, targets in tqdm(train_loader):#metric_logger.log_every(train_loader, print_freq, header):
+            if targets[0] is None:
+                continue
             images = [image.to(device) for image in images]
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -183,8 +185,8 @@ def train(model, train_loader, device, architecture_name,
             losses.backward()
             optimizer.step()
 
-            metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
-            metric_logger.update(lr=optimizer.param_groups[0]["lr"])
+            #metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
+            #metric_logger.update(lr=optimizer.param_groups[0]["lr"])
     
     if save_path is not None:
         print("Saved Model to ", save_path)

@@ -1,11 +1,11 @@
 import cv2
 import os
-import time
-from collections import defaultdict
+#import time
+#from collections import defaultdict
 
 import numpy as np
 import cv2
-import imageio
+#import imageio
 
 from tkinter import E
 import cv2
@@ -14,7 +14,7 @@ from argparse import ArgumentParser
 
 import scipy
 from utils import read_annotations, image_to_tensor
-from evaluation import show_annotations_and_predictions, voc_eval
+#from evaluation import show_annotations_and_predictions, voc_eval
 import os
 from tqdm import tqdm
 from torchvision.ops import nms
@@ -74,6 +74,7 @@ def task2_2(architecture_name, video_path, run_name, args, first_frame=0, use_gp
     # Check if detections have been saved previously
     det_path = os.path.join(model_folder_files, STORED_DETECTIONS_NAME)
     exists_det_file = os.path.exists(det_path)
+    exists_det_file = False
 
     # Create metrics accumulator
     acc = mm.MOTAccumulator(auto_id=True)
@@ -81,8 +82,10 @@ def task2_2(architecture_name, video_path, run_name, args, first_frame=0, use_gp
     # Create dataset
     dataset_path = os.path.dirname(os.path.dirname(os.path.dirname(video_path)))
     sequences = {os.path.basename(os.path.dirname(os.path.dirname(video_path))):
-                 os.path.basename(os.path.dirname(video_path))}
+                 [os.path.basename(os.path.dirname(video_path))]}
     dataset = AICityDataset(dataset_path, sequences)
+    #import pdb
+    #pdb.set_trace()
     
     if exists_det_file:
         # Read detection files
@@ -116,10 +119,13 @@ def task2_2(architecture_name, video_path, run_name, args, first_frame=0, use_gp
 
                 _, gt = dataset[frame_number]
                 if gt:
-                    gt_this_frame = [x[4] for x in gt]
+                    #import pdb
+                    #pdb.set_trace()
+                    gt_boxes = gt['boxes']
+                    gt_this_frame = [int(x) for x in gt['track_id']]
                     dets_this_frame = [int(det[4]) for det in dets]
                     dets_centers = np.vstack([(dets[:,0]+dets[:,2])/2, (dets[:,1]+dets[:,3])/2]).T
-                    gt_centers = np.vstack([(gt[:,0]+gt[:,2])/2, (gt[:,1]+gt[:,3])/2]).T
+                    gt_centers = np.vstack([(gt_boxes[:,0]+gt_boxes[:,2])/2, (gt_boxes[:,1]+gt_boxes[:,3])/2]).T
                     dists = scipy.spatial.distance_matrix(dets_centers, gt_centers).T.tolist()
                     acc.update(
                         gt_this_frame,
@@ -174,11 +180,6 @@ def parse_arguments():
                         required=True,
                         type=str,
                         help="Input video for analyzing mIou/mAP")
-    parser.add_argument("-a",
-                        dest="annotations",
-                        required=True,
-                        type=str,
-                        help="XML Groundtruth annotations")
     parser.add_argument("-n",
                         dest="architecture_name",
                         required=True,
@@ -218,10 +219,9 @@ def parse_arguments():
                         help="Number of frames for which a track is still considerated lived")
     args = parser.parse_args()
 
-    return args.input_video, args.annotations, args.architecture_name, args.display, args.use_gpu, args.run_name, args
+    return args.input_video, args.architecture_name, args.display, args.use_gpu, args.run_name, args
     
 if __name__ == "__main__":
-    input_video, annotations_path, architecture_name, display, use_gpu, run_name, args = parse_arguments()
-    annotations = read_annotations(annotations_path, return_ids=True)
-    task2_2(architecture_name, input_video, annotations, run_name, args, first_frame=0, use_gpu=use_gpu, display=display)
+    input_video, architecture_name, display, use_gpu, run_name, args = parse_arguments()
+    task2_2(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display)
     

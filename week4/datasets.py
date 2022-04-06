@@ -17,7 +17,8 @@ class AICityDataset(torch.utils.data.Dataset):
         self.path = path
         self.videos = []
         self.gts = []
-        lengths = []
+        self.class_car_number = 3
+        lengths = [0]
         if isinstance(sequences, list):
             dict_seqs = {}
             for sequence in sequences:
@@ -26,8 +27,8 @@ class AICityDataset(torch.utils.data.Dataset):
 
         for sequence, camera_ids in sequences.items():
             for camera_id in camera_ids:
+                cam_folder = os.path.join(path, sequence, camera_id)
                 if os.path.isdir(cam_folder):
-                    cam_folder = os.path.join(path, sequence, camera_id)
                     gt = pd.read_csv(os.path.join(cam_folder, 'gt','gt.txt'),
                                     names=['frame', 'id', 'left', 'top', 'width', 'height',
                                             '1','2','3','4'])  # extra useless cols
@@ -38,22 +39,30 @@ class AICityDataset(torch.utils.data.Dataset):
                     lengths.append(frame_count)
         self.video_starts = np.array(lengths).cumsum()
         self.length = sum(lengths)
+        self.lengths = lengths
 
     def __getitem__(self, idx):
-        vid_idx = (self.video_starts > idx).argmax()
+        vid_idx = (self.video_starts[1:] >= idx).argmax()
 
+        self.videos[vid_idx].set(cv2.CAP_PROP_POS_FRAMES, idx - self.video_starts[vid_idx])
         ret, img = self.videos[vid_idx].read()
-        if self.transformations:
-            img = self.transformations(img)
+        if ret:
+            if self.transformations:
+                img = self.transformations(img[:,:,::-1].copy())
 
-        # Check if video is labelled
-        frame_id = idx - self.video_starts[:vid_idx].sum()
-        if frame_id not in self.gts[vid_idx]['frame'].unique():
-            return img, None
+            # Check if video is labelled
+            frame_id = idx - self.video_starts[:vid_idx].sum()
+            if frame_id not in self.gts[vid_idx]['frame'].unique():
+                return img, None
+            else:
+                bboxes = self.gts[vid_idx][self.gts[vid_idx]['frame'] == frame_id][['left','top','width','height','id']].to_numpy()
+                bboxes[:,2] = bboxes[:,0] + bboxes[:,2]
+                bboxes[:,3] = bboxes[:,1] + bboxes[:,3]
+                labels = torch.ones((len(bboxes)), dtype=torch.int64)*self.class_car_number
+                target = {'boxes': torch.tensor(bboxes[:,:4], dtype=torch.float32), 'track_id':torch.tensor(bboxes[:,4], dtype=torch.float32), 'labels': labels, 'image_id': torch.tensor([idx])}
+                return img, target
         else:
-            bboxes = self.gts[vid_idx][self.gts[vid_idx]['frame'] == frame_id][['left','top','width','height','id']].to_numpy()
-            target = {'boxes': bboxes[:,:4], 'labels': bboxes[:,4], 'image_id': torch.tensor([idx])}
-            return img[:,:,::-1], bboxes
+            return torch.ones((24,24,3)), None
         
     def __len__(self):
         return self.length
