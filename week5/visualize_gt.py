@@ -39,7 +39,7 @@ SHOW_THR = 0.5
 RESULTS_FILENAME = "results"
 COLORS = [(int(random.random() * 256), int(random.random() * 256), int(random.random() * 256)) for i in range(10000)]
 
-def visualize_gt(video_path):
+def visualize_gt(video_path, gt_path = None):
     """
     Object tracking: tracking by Kalman
     3 parameters: gt_boxesection threshold, minimum iou to match track, and maximum frames to skip between tracked boxes.
@@ -60,7 +60,8 @@ def visualize_gt(video_path):
     dataset_path = os.path.dirname(os.path.dirname(os.path.dirname(video_path)))
     sequences = {os.path.basename(os.path.dirname(os.path.dirname(video_path))):
                  [os.path.basename(os.path.dirname(video_path))]}
-    dataset = AICityDataset(dataset_path, sequences)
+    print("get_path before init = ",gt_path)
+    dataset = AICityDataset(dataset_path, sequences, gt_path=gt_path)
     #import pdb
     #pdb.set_trace()
     
@@ -96,10 +97,16 @@ def parse_arguments():
                         required=True,
                         type=str,
                         help="Input video for analyzing mIou/mAP")
+    parser.add_argument("-det_path",
+                        dest="det_path",
+                        required=False,
+                        type=str,
+                        help="Input video for analyzing mIou/mAP")
     args = parser.parse_args()
-    return args.input_video
+    return args.input_video, args.det_path
     
 if __name__ == "__main__":
-    input_video = parse_arguments()
-    visualize_gt(input_video)
+    input_video, det_path = parse_arguments()
+    print(det_path)
+    visualize_gt(input_video, det_path)
     

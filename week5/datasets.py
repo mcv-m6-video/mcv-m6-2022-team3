@@ -7,7 +7,7 @@ import os
 
 
 class AICityDataset(torch.utils.data.Dataset):
-    def __init__(self, path, sequences, transformations=None):
+    def __init__(self, path, sequences, transformations=None, gt_path = None):
         """
         sequences can be:
             - list of strings: ['S01', 'S03']. This will load all videos from all cameras
@@ -29,7 +29,14 @@ class AICityDataset(torch.utils.data.Dataset):
             for camera_id in camera_ids:
                 cam_folder = os.path.join(path, sequence, camera_id)
                 if os.path.isdir(cam_folder):
-                    gt = pd.read_csv(os.path.join(cam_folder, 'gt','gt.txt'),
+                    print("get_path = ",gt_path)
+                    if gt_path:
+                        print('loaded detections from ', gt_path)
+                        gt = pd.read_csv(gt_path,
+                                    names=['frame', 'id', 'left', 'top', 'width', 'height',
+                                            '1','2','3','4'])  # extra useless cols
+                    else:
+                        gt = pd.read_csv(os.path.join(cam_folder, 'gt','gt.txt'),
                                     names=['frame', 'id', 'left', 'top', 'width', 'height',
                                             '1','2','3','4'])  # extra useless cols
                     cap = cv2.VideoCapture(os.path.join(cam_folder, 'vdo.avi'))
