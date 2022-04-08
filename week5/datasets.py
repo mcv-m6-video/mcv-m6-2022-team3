@@ -33,39 +33,39 @@ class AICityDataset(torch.utils.data.Dataset):
                                     names=['frame', 'id', 'left', 'top', 'width', 'height',
                                             '1','2','3','4'])  # extra useless cols
                     cap = cv2.VideoCapture(os.path.join(cam_folder, 'vdo.avi'))
-                    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    # Load only frames that are labeled
+                    #frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                     self.gts.append(gt)
                     self.videos.append(cap)
-                    lengths.append(frame_count)
+                    lengths.append(len(gt["frame"].values.unique()))
         self.video_starts = np.array(lengths).cumsum()
         self.length = sum(lengths)
         self.lengths = lengths
 
     def __getitem__(self, idx):
         vid_idx = (self.video_starts[1:] >= idx).argmax()
-
-        self.videos[vid_idx].set(cv2.CAP_PROP_POS_FRAMES, idx - self.video_starts[vid_idx])
+        #idx_list_all = idx - self.video_starts[vid_idx]
+        frame_id = self.gts[vid_idx].iloc[idx - self.video_starts[vid_idx], 0]
+        
+        self.videos[vid_idx].set(cv2.CAP_PROP_POS_FRAMES, frame_id)
         ret, img = self.videos[vid_idx].read()
-        if ret:
-            if self.transformations:
-                img = self.transformations(img[:,:,::-1].copy())
+        if self.transformations:
+            img = self.transformations(img[:,:,::-1].copy())
 
-            # Check if video is labelled
-            frame_id = idx - self.video_starts[:vid_idx].sum()
-            if frame_id not in self.gts[vid_idx]['frame'].unique():
-                return img, None
-            else:
-                bboxes = self.gts[vid_idx][self.gts[vid_idx]['frame'] == frame_id][['left','top','width','height','id']].to_numpy()
-                bboxes[:,2] = bboxes[:,0] + bboxes[:,2]
-                bboxes[:,3] = bboxes[:,1] + bboxes[:,3]
-                labels = torch.ones((len(bboxes)), dtype=torch.int64)*self.class_car_number
-                target = {'boxes': torch.tensor(bboxes[:,:4], dtype=torch.float32), 'track_id':torch.tensor(bboxes[:,4], dtype=torch.float32), 'labels': labels, 'image_id': torch.tensor([idx])}
-                return img, target
-        else:
-            return torch.ones((24,24,3)), None
+        bboxes = self.gts[vid_idx][self.gts[vid_idx]['frame'] == frame_id][['left','top','width','height','id']].to_numpy()
+        bboxes[:,2] = bboxes[:,0] + bboxes[:,2]
+        bboxes[:,3] = bboxes[:,1] + bboxes[:,3]
+        labels = torch.ones((len(bboxes)), dtype=torch.int64)*self.class_car_number
+        target = {'boxes': torch.tensor(bboxes[:,:4], dtype=torch.float32), 'track_id':torch.tensor(bboxes[:,4], dtype=torch.float32), 'labels': labels, 'image_id': torch.tensor([idx])}
+        return img, target
         
     def __len__(self):
         return self.length
+    
+    def contains_gt_for_frame(self, frame_idx):
+        if len(self.lengths) == 1:
+            return len(self.gts[0][self.gts[0]['frame'] == frame_idx]) != 0
+        raise ValueError("Evaluating in more than one sequence")
     
 def collate_dicts_fn(batch):
     return tuple(zip(*batch))

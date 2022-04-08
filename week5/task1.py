@@ -117,21 +117,22 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 # Update tracker
                 dets = track_handler.update(dets_keep)
 
-                _, gt = dataset[frame_number]
-                if gt:
-                    #import pdb
-                    #pdb.set_trace()
-                    gt_boxes = gt['boxes']
-                    gt_this_frame = [int(x) for x in gt['track_id']]
-                    dets_this_frame = [int(det[4]) for det in dets]
-                    dets_centers = np.vstack([(dets[:,0]+dets[:,2])/2, (dets[:,1]+dets[:,3])/2]).T
-                    gt_centers = np.vstack([(gt_boxes[:,0]+gt_boxes[:,2])/2, (gt_boxes[:,1]+gt_boxes[:,3])/2]).T
-                    dists = scipy.spatial.distance_matrix(dets_centers, gt_centers).T.tolist()
-                    acc.update(
-                        gt_this_frame,
-                        dets_this_frame,
-                        dists
-                    )
+                if dataset.contains_gt_for_frame(frame_number):
+                    _, gt = dataset[frame_number]
+                    if gt:
+                        #import pdb
+                        #pdb.set_trace()
+                        gt_boxes = gt['boxes']
+                        gt_this_frame = [int(x) for x in gt['track_id']]
+                        dets_this_frame = [int(det[4]) for det in dets]
+                        dets_centers = np.vstack([(dets[:,0]+dets[:,2])/2, (dets[:,1]+dets[:,3])/2]).T
+                        gt_centers = np.vstack([(gt_boxes[:,0]+gt_boxes[:,2])/2, (gt_boxes[:,1]+gt_boxes[:,3])/2]).T
+                        dists = scipy.spatial.distance_matrix(dets_centers, gt_centers).T.tolist()
+                        acc.update(
+                            gt_this_frame,
+                            dets_this_frame,
+                            dists
+                        )
 
                 if display:
                     img_draw = img.copy()
