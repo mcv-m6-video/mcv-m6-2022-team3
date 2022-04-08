@@ -61,7 +61,8 @@ def visualize_gt(video_path, gt_path = None):
     sequences = {os.path.basename(os.path.dirname(os.path.dirname(video_path))):
                  [os.path.basename(os.path.dirname(video_path))]}
     print("get_path before init = ",gt_path)
-    dataset = AICityDataset(dataset_path, sequences, gt_path=gt_path)
+    dataset_det = AICityDataset(dataset_path, sequences, gt_path=gt_path)
+    dataset = AICityDataset(dataset_path, sequences)
     #import pdb
     #pdb.set_trace()
     
@@ -78,8 +79,23 @@ def visualize_gt(video_path, gt_path = None):
                         img_draw = cv2.rectangle(img_draw, (int(gt_boxes["left"]), int(gt_boxes["top"])), (int(gt_boxes["left"]+gt_boxes["width"]), int(gt_boxes["top"]+gt_boxes["height"])), COLORS[track_id], 2)
                         img_draw = cv2.rectangle(img_draw, (int(gt_boxes["left"]), int(gt_boxes["top"]-20)), (int(gt_boxes["left"]+gt_boxes["width"]), int(gt_boxes["top"])), COLORS[track_id], -2)
                         img_draw = cv2.putText(img_draw, str(track_id), (int(gt_boxes["left"]), int(gt_boxes["top"])), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2)
+
+                img_draw_det = img.copy()
+                if dataset_det.contains_gt_for_frame(frame_number):
+                    gt = dataset_det.get_bboxes_of_frame_id(frame_number)
+                    for i_gt_box in range(len(gt)):
+                        gt_boxes = gt.iloc[i_gt_box, :]
+                        track_id = int(gt_boxes["id"])
+                        # 'left', 'top', 'width', 'height'
+                        img_draw_det = cv2.rectangle(img_draw_det, (int(gt_boxes["left"]), int(gt_boxes["top"])), (int(gt_boxes["left"]+gt_boxes["width"]), int(gt_boxes["top"]+gt_boxes["height"])), COLORS[track_id], 2)
+                        img_draw_det = cv2.rectangle(img_draw_det, (int(gt_boxes["left"]), int(gt_boxes["top"]-20)), (int(gt_boxes["left"]+gt_boxes["width"]), int(gt_boxes["top"])), COLORS[track_id], -2)
+                        img_draw_det = cv2.putText(img_draw_det, str(track_id), (int(gt_boxes["left"]), int(gt_boxes["top"])), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2)
                         
+                
                 cv2.imshow('Tracking results', cv2.resize(img_draw, (int(img_draw.shape[1]*0.5), int(img_draw.shape[0]*0.5))))
+                cv2.imshow('Tracking results DET', cv2.resize(img_draw_det, (int(img_draw_det.shape[1]*0.5), int(img_draw_det.shape[0]*0.5))))
+
+
                 k = cv2.waitKey(1)
                 if k == ord('q'):
                     return
