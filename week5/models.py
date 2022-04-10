@@ -117,7 +117,7 @@ def warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor):
 
     return torch.optim.lr_scheduler.LambdaLR(optimizer, f)
 
-def train(model, train_loader, device, architecture_name,
+def train(model, train_loader, test_loader, device, architecture_name,
                  num_epochs=1,
                  batch_size=1,
                  save_path=None, log_bool=False, run_name='test'):
@@ -142,9 +142,10 @@ def train(model, train_loader, device, architecture_name,
         optimizer = torch.optim.SGD(params, lr=lr, momentum=0.9, weight_decay=0.0005)
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=0.1)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-
-
+    
     mAPs = [0]
+    # or compute initial mAP before finetuning
+    mAPs = [evaluate(model, test_loader, device)]
 
     config_dict = {
             "learning_rate": lr,
@@ -195,6 +196,10 @@ def train(model, train_loader, device, architecture_name,
             #metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
             #metric_logger.update(lr=optimizer.param_groups[0]["lr"])
     
-    if save_path is not None:
-        print("Saved Model to ", save_path)
-        torch.save(model.state_dict(), os.path.join(save_path, f"{run_name}_best.ckpt"))
+        model.eval()
+        mAPs.append(evaluate(model, test_loader, device))
+        model.train()
+    
+        if save_path is not None and mAPs[-1] > np.max(np.array(mAPs[:-1])):
+            print("Saved Model to ", save_path)
+            torch.save(model.state_dict(), os.path.join(save_path, f"{run_name}_best.ckpt"))

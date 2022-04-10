@@ -53,9 +53,13 @@ def finetune(architecture_name, dataset_path, sequences, run_name, use_gpu=True)
     log_bool=True
     num_epochs = 3
     batch_size = 1
+    
+    test_transformations = torchvision.transforms.ToTensor()
+    test_dataset = AICityDatasetDetector(dataset_path, ["S03"], transformations=test_transformations)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, num_workers=1, shuffle=False, collate_fn=collate_dicts_fn)
 
     print('strating training')
-    train(model, train_loader, device, architecture_name,
+    train(model, train_loader, test_loader, device, architecture_name,
                     num_epochs=num_epochs, 
                     batch_size=batch_size,
                     save_path=model_folder_files, log_bool=log_bool, run_name=run_name)
