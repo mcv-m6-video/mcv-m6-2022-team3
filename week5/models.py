@@ -68,15 +68,14 @@ def load_model(architecture_name, use_gpu, finetune=False, trainable_backbone_la
     model.eval()
     return model, device
 
-def evaluate(model, data_loader, device, annotations):
+def evaluate(model, data_loader, device):
 
     model.eval()
 
     predictions, frame_numbers, total_scores = [], [], []
+    annotations = {}
     with torch.no_grad():
         for images, targets in tqdm(data_loader):
-            if targets is None:
-                continue
             images = [image.to(device) for image in images]
             outputs = model(images)
             
@@ -91,8 +90,12 @@ def evaluate(model, data_loader, device, annotations):
                     predictions.append(final_dets[i])
                     total_scores.append(final_scores[i])
                 
-                frame_numbers.append([targets[el]["image_id"].cpu().numpy()[0] for _ in range(len(final_dets))])
-
+                image_id = targets[el]["image_id"].cpu().numpy()[0]
+                # Add annotation only if there are boxes
+                if "boxes" in list(targets[el].keys()):
+                    annotations[image_id] = targets[el]["boxes"].cpu().numpy()
+                if len(final_dets) > 0:
+                    frame_numbers.append([image_id for _ in range(len(final_dets))])
     
     # eval mAP
     annotations = deepcopy(annotations)
@@ -168,8 +171,12 @@ def train(model, train_loader, device, architecture_name,
             lr_scheduler = warmup_lr_scheduler(optimizer, warmup_iterations, warmup_factor) """
 
         for images, targets in tqdm(train_loader):#metric_logger.log_every(train_loader, print_freq, header):
-            if targets[0] is None:
+            idxs_keep = [i for i in range(len(images)) if not targets[i] is None]
+            images = images[idxs_keep]
+            targets = targets[idxs_keep]
+            if len(targets) == 0:
                 continue
+            
             images = [image.to(device) for image in images]
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 

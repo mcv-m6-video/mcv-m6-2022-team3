@@ -84,9 +84,7 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     sequences = {os.path.basename(os.path.dirname(os.path.dirname(video_path))):
                  [os.path.basename(os.path.dirname(video_path))]}
     dataset = AICityDataset(dataset_path, sequences)
-    #import pdb
-    #pdb.set_trace()
-    
+
     if exists_det_file:
         # Read detection files
         print("Reading detections file")

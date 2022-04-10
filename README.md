@@ -176,3 +176,36 @@ optional arguments:
   -g                    Use GPU for model inference
 ```
 If we want to use a fine-tuned model, we have to use the same RUN_NAME as in `finetune.py`. 
+
+## Week 5
+The contents are in the folder `week5`:
+
+### Task 1: Multi-target single-camera tracking (MTSC)
+
+- Finetune car detection network on sequences S01 and S04:
+```
+usage: python finetune.py -d DATASET_PATH -s S01 S04 -n ARCHITECTURE_NAME -r RUN_NAME [-g]
+
+optional arguments:
+  -d DATASET_PATH       Path to the dataset, train folder
+  -s LIST_OF_SEQUENCES  The sequences we want to use for training. e.g. S01 S03 S04
+  -n ARCHITECTURE_NAME  Architecture name. Options: FasterRCNN / MaskRCNN / RetinaNet ...
+  -r RUN_NAME           Name of the experiment
+  -g                    Use GPU for model inference
+```
+
+- Evaluate car finetune car detector on sequence S03:
+```
+usage: python finetune.py -d DATASET_PATH -s S03 -n ARCHITECTURE_NAME -r RUN_NAME [-g]
+
+optional arguments:
+  -d DATASET_PATH       Path to the dataset, train folder
+  -s LIST_OF_SEQUENCES  The sequences we want to use for training. e.g. S01 S03 S04
+  -n ARCHITECTURE_NAME  Architecture name. Options: FasterRCNN / MaskRCNN / RetinaNet ...
+  -r RUN_NAME           Name of the experiment
+  -g                    Use GPU for model inference
+```
+
+- Run tracker on sequence S03: ...
+
+### Task 1.2

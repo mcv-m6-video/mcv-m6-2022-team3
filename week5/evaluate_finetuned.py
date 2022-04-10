@@ -9,8 +9,8 @@ import os
 import torchvision
 
 import torch
-from models import load_model, train#, evaluate
-from datasets import AICityDatasetDetector, collate_dicts_fn
+from models import load_model, train, evaluate #, evaluate
+from datasets import AICityDatasetValidation, collate_dicts_fn
 
 
 WAIT_TIME = 1
@@ -27,39 +27,39 @@ def finetune(architecture_name, dataset_path, sequences, run_name, use_gpu=True)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     print('device:', device)
 
-    transformations = torchvision.transforms.Compose([
-                        torchvision.transforms.ToTensor(),
-                        torchvision.transforms.RandomAutocontrast(p=0.5),
-                        torchvision.transforms.RandomHorizontalFlip(p=0.5)]
-                        )
+    transformations = torchvision.transforms.ToTensor()
     # transformations = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
 
-    train_dataset = AICityDatasetDetector(dataset_path, sequences, transformations=transformations)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
+    test_dataset = AICityDatasetDetector(dataset_path, sequences, transformations=transformations)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, num_workers=1, shuffle=False, collate_fn=collate_dicts_fn)
     print('loader created')
 
     model, device = load_model(architecture_name, use_gpu, finetune=True)
     print('model loaded')
 
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
-
+    
     if not os.path.exists(EXPERIMENTS_FOLDER):
         # os.mkdir(EXPERIMENTS_FOLDER)
         os.makedirs(EXPERIMENTS_FOLDER,exist_ok=True)
     if not os.path.exists(model_folder_files):
         # os.mkdir(model_folder_files)
         os.makedirs(model_folder_files,exist_ok=True)
+    
+    ckpt_path = os.path.join(model_folder_files, run_name+"_best.ckpt")
+    if os.path.exists(ckpt_path):
+        model.load_state_dict(torch.load(ckpt_path))
+    else:
+        print("No finetuned weights for this experiment name, using pretrained model...")
+    model.eval()
 
-    log_bool=True
+    log_bool = True
     num_epochs = 3
     batch_size = 1
 
-    print('strating training')
-    train(model, train_loader, device, architecture_name,
-                    num_epochs=num_epochs, 
-                    batch_size=batch_size,
-                    save_path=model_folder_files, log_bool=log_bool, run_name=run_name)
-    print("Training done")
+    print('Starting mAP evaluation')
+    evaluate(model, test_loader, device)
+    print("Evaluation done")
 
 
 def parse_arguments():
@@ -89,14 +89,6 @@ def parse_arguments():
                         dest="use_gpu",
                         action="store_true",
                         help="Use GPU for model inference")
-    
-    ## Model training parameters
-    parser.add_argument("-b", 
-                        default=8, 
-                        dest="batch_size",
-                        type=int,
-                        help="Batch size")
-    
     args = parser.parse_args()
 
     return args.dataset_path, args.sequencies, args.architecture_name, args.use_gpu, args.run_name
@@ -106,8 +98,3 @@ if __name__ == "__main__":
     # (architecture_name, video_path, annotations, run_name, finetune, train_model=False, use_gpu=True)
     finetune(architecture_name, path_dataset, sequencies, run_name, use_gpu=use_gpu)
     
-
-"""
-python3 week3/task1_2.py -v /home/aszummer/Documents/MCV/M6/mcvm6team3/data/AICity_data/AICity_data/train/S03/c010/vdo.avi -a /home/aszummer/Documents/MCV/M6/mcvm6team3/data/ai_challenge_s03_c010-full_annotation.xml -n FasterRCNN -g -r "test"
-python3 task1_2.py -v /home/aszummer/Documents/MCV/M6/mcvm6team3/data/AICity_data/AICity_data/train/S03/c010/vdo.avi -a /home/aszummer/Documents/MCV/M6/mcvm6team3/data/ai_challenge_s03_c010-full_annotation.xml -n MaskRCNN -g -r "test_MASKRCNN_b2_lr0.002_10_epoch -t
-"""
