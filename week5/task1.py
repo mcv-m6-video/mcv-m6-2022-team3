@@ -18,7 +18,7 @@ from utils import read_annotations, image_to_tensor
 import os
 from tqdm import tqdm
 from torchvision.ops import nms
-from datasets import AICityDataset
+from datasets import AICityDatasetDetector
 import utils
 import sys
 
@@ -29,7 +29,7 @@ from sort import convert_x_to_bbox
 import motmetrics as mm
 
 WAIT_TIME = 1
-SAVE = True
+SAVE = False
 CAR_LABEL_NUM = 3
 FRAME_25PER = 510
 EXPERIMENTS_FOLDER = "experiments"
@@ -72,9 +72,10 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     ret, img = cap.read()
     
     # Check if detections have been saved previously
+    model_folder_files = os.path.join(model_folder_files, os.path.basename(os.path.dirname(os.path.dirname(video_path))), os.path.basename(os.path.dirname(video_path)))
+    os.makedirs(model_folder_files, exist_ok=True)
     det_path = os.path.join(model_folder_files, STORED_DETECTIONS_NAME)
     exists_det_file = os.path.exists(det_path)
-    exists_det_file = False
 
     # Create metrics accumulator
     acc = mm.MOTAccumulator(auto_id=True)
@@ -83,7 +84,7 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     dataset_path = os.path.dirname(os.path.dirname(os.path.dirname(video_path)))
     sequences = {os.path.basename(os.path.dirname(os.path.dirname(video_path))):
                  [os.path.basename(os.path.dirname(video_path))]}
-    dataset = AICityDataset(dataset_path, sequences)
+    dataset = AICityDatasetDetector(dataset_path, sequences)
 
     if exists_det_file:
         # Read detection files
@@ -115,9 +116,9 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 # Update tracker
                 dets = track_handler.update(dets_keep)
 
-                if dataset.contains_gt_for_frame(frame_number):
-                    _, gt = dataset[frame_number]
-                    if gt:
+                _, gt = dataset[frame_number]
+                if gt:
+                    if "boxes" in list(gt.keys()):
                         #import pdb
                         #pdb.set_trace()
                         gt_boxes = gt['boxes']
