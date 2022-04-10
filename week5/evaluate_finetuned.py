@@ -10,7 +10,7 @@ import torchvision
 
 import torch
 from models import load_model, train, evaluate #, evaluate
-from datasets import AICityDatasetValidation, collate_dicts_fn
+from datasets import AICityDatasetDetector, collate_dicts_fn
 
 
 WAIT_TIME = 1
