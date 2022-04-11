@@ -118,6 +118,8 @@ class KalmanBoxTracker(object):
     KalmanBoxTracker.count += 1
     self.visualization_color = (int(random.random() * 256), int(random.random() * 256), int(random.random() * 256))
     self.history = []
+    self.frames = []
+    
     self.hits = 0
     self.hit_streak = 0
     self.age = 0
@@ -131,7 +133,7 @@ class KalmanBoxTracker(object):
     self.hit_streak += 1
     self.kf.update(convert_bbox_to_z(bbox))
 
-  def predict(self):
+  def predict(self, frame_number=0):
     """
     Advances the state vector and returns the predicted bounding box estimate.
     """
@@ -143,6 +145,7 @@ class KalmanBoxTracker(object):
       self.hit_streak = 0
     self.time_since_update += 1
     self.history.append(convert_x_to_bbox(self.kf.x))
+    self.frames.append(frame_number)
     return self.history[-1]
 
   def get_state(self):
@@ -206,9 +209,10 @@ class Sort(object):
     self.min_hits = min_hits
     self.iou_threshold = iou_threshold
     self.trackers = []
+    self.dead_trackers = []
     self.frame_count = 0
 
-  def update(self, dets=np.empty((0, 5))):
+  def update(self, dets=np.empty((0, 5)), frame_number=0):
     """
     Params:
       dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
@@ -223,13 +227,14 @@ class Sort(object):
     to_del = []
     ret = []
     for t, trk in enumerate(trks):
-      pos = self.trackers[t].predict()[0]
+      pos = self.trackers[t].predict(frame_number)[0]
       trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
       if np.any(np.isnan(pos)):
         to_del.append(t)
     trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
     for t in reversed(to_del):
-      self.trackers.pop(t)
+      dead_track = self.trackers.pop(t)
+      self.dead_trackers.append(dead_track)
     matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks, self.iou_threshold)
 
     # update matched trackers with assigned detections
@@ -248,10 +253,64 @@ class Sort(object):
         i -= 1
         # remove dead tracklet
         if(trk.time_since_update > self.max_age):
-          self.trackers.pop(i)
+          dead_track = self.trackers.pop(i)
+          self.dead_trackers.append(dead_track)
     if(len(ret)>0):
       return np.concatenate(ret)
     return np.empty((0,5))
+  
+  def postprocess_trackers(self, threshold=100):
+    # Remove static tracks + ReID? -> Fix fragmented tracks with visual model maybe
+    all_tracks = self.dead_trackers + self.trackers
+    non_static_tracks = []
+    for track in all_tracks:
+      track_history = np.concatenate(track.history)
+      # track_history = track_history.reshape((len(track_history)//4, 4))
+      centers_std = np.std((track_history[:, [0, 1]] + track_history[:, [2, 3]]) / 2, 0)
+      if centers_std[0] > threshold or centers_std[1] > threshold:
+        non_static_tracks.append(track)
+    
+    self.non_static_tracks = non_static_tracks
+  
+  def get_frame_at_x(self, frame_number):
+    # Get frames at the specified frame number saved on the frames
+    detections = []
+    if self.non_static_tracks is None:
+      self.non_static_tracks = self.dead_trackers + self.trackers
+    
+    for track in self.non_static_tracks:
+      track_frames = np.array(track.frames)
+      track_history = np.concatenate(track.history)
+      # track_history = track_history.reshape((len(track_history)//4, 4))
+      bbox = track_history[track_frames == frame_number]
+      if len(bbox) > 0:
+        bbox = bbox[0]
+        track_id = track.id+1
+        detections.append([bbox[0], bbox[1], bbox[2], bbox[3], track_id])
+
+    return np.array(detections)
+  
+  def get_frames_before_x(self, frame_number):
+    # Get frames at the specified frame number saved on the frames
+    all_detections = []
+    if self.non_static_tracks is None:
+      self.non_static_tracks = self.dead_trackers + self.trackers
+    
+    for track in self.non_static_tracks:
+      detections = []
+      track_frames = np.array(track.frames)
+      track_history = np.concatenate(track.history)
+      # track_history = track_history.reshape((len(track_history)//4, 4))
+      bboxes = track_history[track_frames <= frame_number]
+      if len(bboxes) > 0:
+        for bbox in bboxes:
+          track_id = track.id+1
+          detections.append([bbox[0], bbox[1], bbox[2], bbox[3], track_id])
+      
+      if len(detections) > 0:
+        all_detections.append(np.array(detections))
+        
+    return all_detections
 
 def parse_args():
     """Parse input arguments."""

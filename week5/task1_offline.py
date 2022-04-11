@@ -21,6 +21,7 @@ from torchvision.ops import nms
 from datasets import AICityDatasetDetector
 import utils
 import sys
+import random
 
 import torch
 from models import load_model
@@ -38,6 +39,10 @@ STORED_DETECTIONS_NAME = "dets.txt"
 SHOW_THR = 0.5
 RESULTS_FILENAME = "results"
 
+REMOVE_SMALL_BOXES = True
+THRESHOLD_SMALL = 20*20
+REMOVE_STATIC_TRACKS = True
+COLORS = [(int(random.random() * 256), int(random.random() * 256), int(random.random() * 256)) for i in range(10000)]
 
 def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=True, display=True):
     """
@@ -91,7 +96,8 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
         # Read detection files
         print("Reading detections file")
         model_detections = utils.parse_predictions_rects(det_path)
-    
+        
+    all_dets, all_gts = [], []
     with torch.no_grad():
         with tqdm(total=length, file=sys.stdout) as pbar:
             while ret:
@@ -112,19 +118,41 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                     
                 # Filter detections by score -> hyperparam
                 dets_keep = final_dets[final_scores > detection_threshold]
+                
+                if REMOVE_SMALL_BOXES:
+                    dets_keep = dets_keep[(dets_keep[:, 2]-dets_keep[:, 0])*(dets_keep[:, 3]-dets_keep[:, 1]) > THRESHOLD_SMALL]
                 dets_keep = np.hstack([dets_keep, final_scores[final_scores > detection_threshold][:,np.newaxis]])
 
                 # Update tracker
-                dets = track_handler.update(dets_keep)
+                dets = track_handler.update(dets_keep, frame_number=frame_number)
 
                 _, gt = dataset[frame_number]
-                if gt:
-                    if "boxes" in list(gt.keys()):
-                        #import pdb
-                        #pdb.set_trace()
-                        gt_boxes = gt['boxes']
-                        gt_this_frame = [int(x) for x in gt['track_id']]
-                        dets_this_frame = [int(det[4]) for det in dets]
+                all_dets.append(dets_keep)
+                all_gts.append(gt)
+                
+                frame_number += 1
+                ret, img = cap.read()
+                pbar.update(1)
+                
+    # We have all gts and dets, now we can remove static tracks + relink tracks based on visual features...
+    if REMOVE_STATIC_TRACKS:
+        track_handler.postprocess_trackers()
+    
+    ret = True
+    frame_number = first_frame
+    cap.set(cv2.CAP_PROP_POS_FRAMES, first_frame)
+    ret, img = cap.read()
+    with tqdm(total=length, file=sys.stdout) as pbar:
+        
+        while ret:
+            dets = track_handler.get_frame_at_x(frame_number)
+            gt = all_gts[frame_number]
+            if gt:
+                if "boxes" in list(gt.keys()):
+                    gt_boxes = gt['boxes']
+                    gt_this_frame = [int(x) for x in gt['track_id']]
+                    dets_this_frame = [int(det[4]) for det in dets]
+                    if len(dets_this_frame) > 0:
                         dets_centers = np.vstack([(dets[:,0]+dets[:,2])/2, (dets[:,1]+dets[:,3])/2]).T
                         gt_centers = np.vstack([(gt_boxes[:,0]+gt_boxes[:,2])/2, (gt_boxes[:,1]+gt_boxes[:,3])/2]).T
                         dists = scipy.spatial.distance_matrix(dets_centers, gt_centers).T.tolist()
@@ -133,40 +161,44 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                             dets_this_frame,
                             dists
                         )
+                    else:
+                        acc.update(
+                            gt_this_frame,
+                            [],
+                            []
+                        )
 
-                if display:
-                    img_draw = img.copy()
-                    for track in track_handler.trackers:
-                        det = convert_x_to_bbox(track.kf.x).squeeze()
-                        #det, _ = track.last_detection()
-                        img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), track.visualization_color, 2)
-                        img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1]-20)), (int(det[2]), int(det[1])), track.visualization_color, -2)
-                        img_draw = cv2.putText(img_draw, str(track.id), (int(det[0]), int(det[1])), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2)
-                        for detection in track.history:
-                            detection_center = ( int((detection[0][0]+detection[0][2])/2), int((detection[0][1]+detection[0][3])/2) )
-                            img_draw = cv2.circle(img_draw, detection_center, 5, track.visualization_color, -1)
-                            
-                    cv2.imshow('Tracking results', cv2.resize(img_draw, (int(img_draw.shape[1]*0.5), int(img_draw.shape[0]*0.5))))
-                    k = cv2.waitKey(1)
-                    if k == ord('q'):
-                        return
+            if display:
+                img_draw = img.copy()
+                all_detections = track_handler.get_frames_before_x(frame_number)
+                for detections in all_detections:
+                    det = detections[-1] 
+                    track_id = int(det[-1])
                     
-                    if SAVE:
-                        track_exp_name = f"tracking_t{detection_threshold:03f}_i{min_iou}_fs{max_frames_skip}"
-                        path_to_res_folder = os.path.join(model_folder_files, RESULTS_FILENAME, track_exp_name)
-                        os.makedirs(path_to_res_folder,exist_ok=True)
-                        cv2.imwrite(path_to_res_folder+'/image_'+str(frame_number-first_frame).zfill(4)+'.jpg', cv2.resize(img_draw, tuple(np.int0(0.5*np.array(img_draw.shape[:2][::-1])))))
-
-                frame_number += 1
-                ret, img = cap.read()
-                pbar.update(1)
+                    #det = convert_x_to_bbox(track.kf.x).squeeze()
+                    #det, _ = track.last_detection()
+                    img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), COLORS[track_id], 2)
+                    img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1]-20)), (int(det[2]), int(det[1])), COLORS[track_id], -2)
+                    img_draw = cv2.putText(img_draw, str(track_id), (int(det[0]), int(det[1])), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2)
+                    for detection in detections[:-1]:
+                        detection_center = ( int((detection[0]+detection[2])/2), int((detection[1]+detection[3])/2) )
+                        img_draw = cv2.circle(img_draw, detection_center, 5, COLORS[track_id], -1)
+                        
+                cv2.imshow('Tracking results', cv2.resize(img_draw, (int(img_draw.shape[1]*0.5), int(img_draw.shape[0]*0.5))))
+                k = cv2.waitKey(1)
+                if k == ord('q'):
+                    return
                 
-                if SAVE_DETS and not exists_det_file:
-                    with open(det_path, 'a') as f:
-                       for idx in range(len(final_dets)):
-                            detection = final_dets[idx]
-                            f.write(f'{frame_number}, -1, {detection[0]}, {detection[1]}, {detection[2]-detection[0]}, {detection[3]-detection[1]}, {final_scores[idx]}, -1, -1, -1\n')
+                if SAVE:
+                    track_exp_name = f"tracking_t{detection_threshold:03f}_i{min_iou}_fs{max_frames_skip}"
+                    path_to_res_folder = os.path.join(model_folder_files, RESULTS_FILENAME, track_exp_name)
+                    os.makedirs(path_to_res_folder,exist_ok=True)
+                    cv2.imwrite(path_to_res_folder+'/image_'+str(frame_number-first_frame).zfill(4)+'.jpg', cv2.resize(img_draw, tuple(np.int0(0.5*np.array(img_draw.shape[:2][::-1])))))
 
+            frame_number += 1
+            ret, img = cap.read()
+            pbar.update(1)
+            
     # TODO: When IDF1 is implemented evaluate with different hyperparameters
     mh = mm.metrics.create()
     summary = mh.compute(acc, metrics=mm.metrics.motchallenge_metrics, name='acc')

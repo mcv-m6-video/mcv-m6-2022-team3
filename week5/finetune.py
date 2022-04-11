@@ -28,12 +28,10 @@ def finetune(architecture_name, dataset_path, sequences, run_name, use_gpu=True)
     print('device:', device)
 
     transformations = torchvision.transforms.Compose([
-                        torchvision.transforms.ToTensor(),
                         torchvision.transforms.RandomAutocontrast(p=0.5),
-                        torchvision.transforms.RandomHorizontalFlip(p=0.5)]
-                        )
-    # transformations = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
-
+                        torchvision.transforms.RandomHorizontalFlip(p=0.5),
+                        torchvision.transforms.ToTensor()]
+                    )
     train_dataset = AICityDatasetDetector(dataset_path, sequences, transformations=transformations)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, num_workers=1, shuffle=True, collate_fn=collate_dicts_fn)
     print('loader created')

@@ -173,6 +173,7 @@ def train(model, train_loader, test_loader, device, architecture_name,
 
         for images, targets in tqdm(train_loader):#metric_logger.log_every(train_loader, print_freq, header):
             idxs_keep = [i for i in range(len(images)) if not targets[i] is None]
+            
             images = images[idxs_keep]
             targets = targets[idxs_keep]
             if len(targets) == 0:
