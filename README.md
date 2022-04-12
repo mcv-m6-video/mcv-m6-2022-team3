@@ -208,4 +208,7 @@ optional arguments:
 
 - Run tracker on sequence S03: ...
 
+- For using ReIdentification network for visual features download the model from: https://drive.google.com/file/d/1wUbYm5-EJs0W-LAGS69yvb33D6NkFWpH/view
+Then put the network weights "net_last.pth" in `week5/feat_extraction/reID`.
+
 ### Task 1.2
