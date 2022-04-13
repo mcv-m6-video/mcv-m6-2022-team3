@@ -24,7 +24,7 @@ import sys
 
 import torch
 from models import load_model
-from sort import Sort
+from sort import Sort, DeepSORT
 from sort import convert_x_to_bbox
 import motmetrics as mm
 
@@ -48,31 +48,13 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     min_iou = args.min_iou
     max_frames_skip = args.frame_skip
     #track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
-    track_handler = Sort(max_age=max_frames_skip, iou_threshold=min_iou)  # Sort max_age=1, here its 5
-
-    # Prepare model
-    model, device = load_model(architecture_name, use_gpu)
-    model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
-    ckpt_path = os.path.join(model_folder_files, run_name+"_best.ckpt")
-    if not os.path.exists(ckpt_path):
-        print("No pretrained weights for this experiment name.")
+    if False:
+        track_handler = Sort(max_age=max_frames_skip, iou_threshold=min_iou)  # Sort max_age=1, here its 5
     else:
-        model.load_state_dict(torch.load(ckpt_path))
-        print(f"Model {run_name} loaded")
-    model.eval()
-    
-    # Prepare video capture
-    cap = cv2.VideoCapture(video_path)
-    last_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-    length = last_frame-first_frame
-    cap.set(cv2.CAP_PROP_POS_FRAMES, first_frame)
-    
-    ret = True
-    frame_number = first_frame
-    
-    ret, img = cap.read()
-    
+        track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou)
+
     # Check if detections have been saved previously
+    model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
     model_folder_files = os.path.join(model_folder_files, os.path.basename(os.path.dirname(os.path.dirname(video_path))), os.path.basename(os.path.dirname(video_path)))
     os.makedirs(model_folder_files, exist_ok=True)
     det_path = os.path.join(model_folder_files, STORED_DETECTIONS_NAME)
@@ -91,6 +73,29 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
         # Read detection files
         print("Reading detections file")
         model_detections = utils.parse_predictions_rects(det_path)
+        
+    else:
+        # Prepare model
+        model, device = load_model(architecture_name, use_gpu)
+    
+        ckpt_path = os.path.join(model_folder_files, run_name+"_best.ckpt")
+        if not os.path.exists(ckpt_path):
+            print("No pretrained weights for this experiment name.")
+        else:
+            model.load_state_dict(torch.load(ckpt_path))
+            print(f"Model {run_name} loaded")
+        model.eval()
+    
+    # Prepare video capture
+    cap = cv2.VideoCapture(video_path)
+    last_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    length = last_frame-first_frame
+    cap.set(cv2.CAP_PROP_POS_FRAMES, first_frame)
+    
+    ret = True
+    frame_number = first_frame
+    
+    ret, img = cap.read()
     
     with torch.no_grad():
         with tqdm(total=length, file=sys.stdout) as pbar:
@@ -115,7 +120,7 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 dets_keep = np.hstack([dets_keep, final_scores[final_scores > detection_threshold][:,np.newaxis]])
 
                 # Update tracker
-                dets = track_handler.update(dets_keep)
+                dets = track_handler.update(image=img, dets=dets_keep)
 
                 _, gt = dataset[frame_number]
                 if gt:
@@ -137,14 +142,15 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 if display:
                     img_draw = img.copy()
                     for track in track_handler.trackers:
-                        det = convert_x_to_bbox(track.kf.x).squeeze()
-                        #det, _ = track.last_detection()
-                        img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), track.visualization_color, 2)
-                        img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1]-20)), (int(det[2]), int(det[1])), track.visualization_color, -2)
-                        img_draw = cv2.putText(img_draw, str(track.id), (int(det[0]), int(det[1])), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2)
-                        for detection in track.history:
-                            detection_center = ( int((detection[0][0]+detection[0][2])/2), int((detection[0][1]+detection[0][3])/2) )
-                            img_draw = cv2.circle(img_draw, detection_center, 5, track.visualization_color, -1)
+                        if not track.is_static():
+                            det = convert_x_to_bbox(track.kf.x).squeeze()
+                            #det, _ = track.last_detection()
+                            img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), track.visualization_color, 2)
+                            img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1]-20)), (int(det[2]), int(det[1])), track.visualization_color, -2)
+                            img_draw = cv2.putText(img_draw, str(track.id), (int(det[0]), int(det[1])), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2)
+                            for detection in track.history:
+                                detection_center = ( int((detection[0][0]+detection[0][2])/2), int((detection[0][1]+detection[0][3])/2) )
+                                img_draw = cv2.circle(img_draw, detection_center, 5, track.visualization_color, -1)
                             
                     cv2.imshow('Tracking results', cv2.resize(img_draw, (int(img_draw.shape[1]*0.5), int(img_draw.shape[0]*0.5))))
                     k = cv2.waitKey(1)

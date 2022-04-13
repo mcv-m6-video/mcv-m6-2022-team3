@@ -53,7 +53,8 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     min_iou = args.min_iou
     max_frames_skip = args.frame_skip
     #track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
-    track_handler = Sort(max_age=max_frames_skip, iou_threshold=min_iou)  # Sort max_age=1, here its 5
+    # Compare to DeepSort
+    track_handler = Sort(online_filtering=False, max_age=max_frames_skip, iou_threshold=min_iou)  # Sort max_age=1, here its 5
 
     # Prepare model
     model, device = load_model(architecture_name, use_gpu)
@@ -108,7 +109,7 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                     preds = output[0]
 
                     # Keep only car predictions
-                    keep_cars_mask = preds['labels'] == CAR_LABEL_NUM
+                    keep_cars_mask = preds['labels'] == CAR_LABEL_NUM # np.logical_or(np.logical_or(preds['labels'] == CAR_LABEL_NUM, preds['labels'] == 6), preds['labels'] == 8) 
                     bboxes, scores = preds['boxes'][keep_cars_mask], preds['scores'][keep_cars_mask]
                     idxs = nms(bboxes, scores, 0.7)
                     final_dets, final_scores = bboxes[idxs].cpu().numpy(), scores[idxs].cpu().numpy()

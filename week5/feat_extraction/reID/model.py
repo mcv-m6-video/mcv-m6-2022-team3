@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.nn import init
 from torchvision import models
 from torch.autograd import Variable
-from feature_extraction.reID.pretrained_model.losses import AngleLinear, ArcLinear
+from feat_extraction.reID.losses import AngleLinear, ArcLinear
 from torch.nn import functional as F
 
 ######################################################################

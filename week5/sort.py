@@ -30,6 +30,7 @@ import time
 import random
 import argparse
 from filterpy.kalman import KalmanFilter
+from visual_features import ReIDNetwork
 
 np.random.seed(0)
 
@@ -119,6 +120,7 @@ class KalmanBoxTracker(object):
     self.visualization_color = (int(random.random() * 256), int(random.random() * 256), int(random.random() * 256))
     self.history = []
     self.frames = []
+    self.threshold = 10
     
     self.hits = 0
     self.hit_streak = 0
@@ -153,9 +155,21 @@ class KalmanBoxTracker(object):
     Returns the current bounding box estimate.
     """
     return convert_x_to_bbox(self.kf.x)
+  
+  def is_static(self):
+    """
+    Analyze if this track is static based on initial detections and final detections
+    """
+    if len(self.history) > 10:
+      history = self.history[:10]+self.history[-10:]
+      track_history = np.concatenate(history)
+      centers_std = np.std((track_history[:, [0, 1]] + track_history[:, [2, 3]]) / 2, 0)
+      _is_static = centers_std[0] < self.threshold and centers_std[1] < self.threshold
+      return _is_static
+    else:
+      return False
 
-
-def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
+def associate_detections_to_trackers(detections,trackers,feature_vectors=None, new_feature_vectors=None, iou_threshold = 0.3, beta=0.8):
   """
   Assigns detections to tracked object (both represented as bounding boxes)
 
@@ -165,13 +179,19 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
     return np.empty((0,2),dtype=int), np.arange(len(detections)), np.empty((0,5),dtype=int)
 
   iou_matrix = iou_batch(detections, trackers)
+  sim_matrix = iou_matrix
+  if not feature_vectors is None:
+    if len(feature_vectors) > 0:
+      feature_vectors, new_feature_vectors = np.concatenate(feature_vectors, 0), np.concatenate(new_feature_vectors, 0)
+      reid_matrix = new_feature_vectors@feature_vectors.transpose(1, 0)
+      sim_matrix = sim_matrix * (1-beta) + reid_matrix * beta
 
-  if min(iou_matrix.shape) > 0:
-    a = (iou_matrix > iou_threshold).astype(np.int32)
+  if min(sim_matrix.shape) > 0:
+    a = (sim_matrix > iou_threshold).astype(np.int32)
     if a.sum(1).max() == 1 and a.sum(0).max() == 1:
         matched_indices = np.stack(np.where(a), axis=1)
     else:
-      matched_indices = linear_assignment(-iou_matrix)
+      matched_indices = linear_assignment(-sim_matrix)
   else:
     matched_indices = np.empty(shape=(0,2))
 
@@ -187,7 +207,7 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
   #filter out matched with low IOU
   matches = []
   for m in matched_indices:
-    if(iou_matrix[m[0], m[1]]<iou_threshold):
+    if(sim_matrix[m[0], m[1]]<iou_threshold):
       unmatched_detections.append(m[0])
       unmatched_trackers.append(m[1])
     else:
@@ -201,7 +221,7 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
 
 
 class Sort(object):
-  def __init__(self, max_age=1, min_hits=3, iou_threshold=0.3):
+  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3):
     """
     Sets key parameters for SORT
     """
@@ -211,8 +231,9 @@ class Sort(object):
     self.trackers = []
     self.dead_trackers = []
     self.frame_count = 0
+    self.online_filtering = online_filtering
 
-  def update(self, dets=np.empty((0, 5)), frame_number=0):
+  def update(self, image=None, dets=np.empty((0, 5)), frame_number=0):
     """
     Params:
       dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
@@ -235,7 +256,7 @@ class Sort(object):
     for t in reversed(to_del):
       dead_track = self.trackers.pop(t)
       self.dead_trackers.append(dead_track)
-    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks, self.iou_threshold)
+    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks, iou_threshold=self.iou_threshold)
 
     # update matched trackers with assigned detections
     for m in matched:
@@ -248,13 +269,19 @@ class Sort(object):
     i = len(self.trackers)
     for trk in reversed(self.trackers):
         d = trk.get_state()[0]
-        if (trk.time_since_update < 1) and (trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits):
-          ret.append(np.concatenate((d,[trk.id+1])).reshape(1,-1)) # +1 as MOT benchmark requires positive
+        if (trk.time_since_update < 1) and (trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits): 
+          if self.online_filtering:
+            if not trk.is_static():
+              ret.append(np.concatenate((d,[trk.id+1])).reshape(1,-1)) # +1 as MOT benchmark requires positive
+          else:
+            ret.append(np.concatenate((d,[trk.id+1])).reshape(1,-1))
+            
         i -= 1
-        # remove dead tracklet
+        # remove dead tracklet if has exceeded max age
         if(trk.time_since_update > self.max_age):
           dead_track = self.trackers.pop(i)
           self.dead_trackers.append(dead_track)
+          
     if(len(ret)>0):
       return np.concatenate(ret)
     return np.empty((0,5))
@@ -311,6 +338,92 @@ class Sort(object):
         all_detections.append(np.array(detections))
         
     return all_detections
+  
+class DeepSORT(Sort):
+  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3):
+    super().__init__(online_filtering=online_filtering, max_age=max_age, min_hits=min_hits, iou_threshold=iou_threshold)
+    self.reid_model = ReIDNetwork()
+    
+  def update(self, image=None, dets=np.empty((0, 5)), frame_number=0):
+    """
+    Params:
+      dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
+    Requires: this method must be called once for each frame even with empty detections (use np.empty((0, 5)) for frames without detections).
+    Returns the a similar array, where the last column is the object ID.
+
+    NOTE: The number of objects returned may differ from the number of detections provided.
+    """
+    self.frame_count += 1
+    # get predicted locations from existing trackers.
+    trks = np.zeros((len(self.trackers), 5))
+    to_del = []
+    ret = []
+    feature_vectors = []
+    for t, trk in enumerate(trks):
+      pos = self.trackers[t].predict(frame_number)[0]
+      feature_vectors.append(self.trackers[t].feature_vector)
+      trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
+      if np.any(np.isnan(pos)):
+        to_del.append(t)
+    trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
+    for t in reversed(to_del):
+      dead_track = self.trackers.pop(t)
+      self.dead_trackers.append(dead_track)
+    new_feature_vectors = []
+    for det in dets:
+      det = det.astype(np.int)
+      x1,y1,x2,y2,_ = det
+      car_patch = image[y1:y2, x1:x2]
+      feature_vector = self.reid_model.extract_features(car_patch)
+      new_feature_vectors.append(feature_vector)
+    
+    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks, feature_vectors=feature_vectors, new_feature_vectors=new_feature_vectors, iou_threshold=self.iou_threshold)
+
+    # update matched trackers with assigned detections
+    for m in matched:
+      x1,y1,x2,y2,_ = dets[m[0], :].astype(np.int)
+      car_patch = image[y1:y2, x1:x2]
+      self.trackers[m[1]].update(dets[m[0], :], new_feature_vectors[m[0]])
+
+    # create and initialise new trackers for unmatched detections
+    for i in unmatched_dets:
+        x1,y1,x2,y2,_ = dets[i, :].astype(np.int)
+        car_patch = image[y1:y2, x1:x2]
+        feature_vector = self.reid_model.extract_features(car_patch)
+        trk = KalmanWithFeatures(dets[i,:], new_feature_vectors[i])
+        self.trackers.append(trk)
+    i = len(self.trackers)
+    for trk in reversed(self.trackers):
+        d = trk.get_state()[0]
+        if (trk.time_since_update < 1) and (trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits): 
+          if self.online_filtering:
+            if not trk.is_static():
+              ret.append(np.concatenate((d,[trk.id+1])).reshape(1,-1)) # +1 as MOT benchmark requires positive
+          else:
+            ret.append(np.concatenate((d,[trk.id+1])).reshape(1,-1))
+            
+        i -= 1
+        # remove dead tracklet if has exceeded max age
+        if(trk.time_since_update > self.max_age):
+          dead_track = self.trackers.pop(i)
+          self.dead_trackers.append(dead_track)
+          
+    if(len(ret)>0):
+      return np.concatenate(ret)
+    return np.empty((0,5))
+  
+class KalmanWithFeatures(KalmanBoxTracker):
+  def __init__(self, bbox, feature_vector, alpha=0.7):
+    super().__init__(bbox)
+    self.feature_vector = feature_vector
+    self.alpha = alpha
+    
+  def update(self, bbox, new_feature_vector):
+    # Here update bbox and feature_vector
+    super().update(bbox)
+    # update feature_vector
+    self.feature_vector = self.alpha * new_feature_vector + (1-self.alpha) * self.feature_vector
+    self.feature_vector = self.feature_vector / np.linalg.norm(self.feature_vector, ord=2)
 
 def parse_args():
     """Parse input arguments."""
