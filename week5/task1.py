@@ -48,7 +48,7 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     min_iou = args.min_iou
     max_frames_skip = args.frame_skip
     #track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
-    if False:
+    if True:
         track_handler = Sort(max_age=max_frames_skip, iou_threshold=min_iou)  # Sort max_age=1, here its 5
     else:
         track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou)
@@ -143,13 +143,15 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                     img_draw = img.copy()
                     for track in track_handler.trackers:
                         if not track.is_static():
-                            det = convert_x_to_bbox(track.kf.x).squeeze()
+                            det = track.get_state()[0]
                             #det, _ = track.last_detection()
                             img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), track.visualization_color, 2)
                             img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1]-20)), (int(det[2]), int(det[1])), track.visualization_color, -2)
                             img_draw = cv2.putText(img_draw, str(track.id), (int(det[0]), int(det[1])), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2)
                             for detection in track.history:
-                                detection_center = ( int((detection[0][0]+detection[0][2])/2), int((detection[0][1]+detection[0][3])/2) )
+                                if detection.ndim == 2:
+                                    detection = detection[0]
+                                detection_center = ( int((detection[0]+detection[2])/2), int((detection[1]+detection[3])/2) )
                                 img_draw = cv2.circle(img_draw, detection_center, 5, track.visualization_color, -1)
                             
                     cv2.imshow('Tracking results', cv2.resize(img_draw, (int(img_draw.shape[1]*0.5), int(img_draw.shape[0]*0.5))))

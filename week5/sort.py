@@ -169,6 +169,63 @@ class KalmanBoxTracker(object):
     else:
       return False
 
+
+class IoUTracker(object):
+  """
+  This class represents the internal state of individual tracked objects observed as bbox.
+  """
+  count = 0
+  def __init__(self,bbox):
+    """
+    Initialises a tracker using initial bounding box.
+    """
+    #define constant velocity model
+    self.time_since_update = 0
+    self.id = IoUTracker.count
+    IoUTracker.count += 1
+    self.visualization_color = (int(random.random() * 256), int(random.random() * 256), int(random.random() * 256))
+    self.history = [bbox]
+    self.frames = []
+    self.threshold = 10
+    
+    self.hits = 0
+    self.hit_streak = 0
+    self.age = 0
+
+  def update(self,bbox):
+    """
+    Updates the state vector with observed bbox.
+    """
+    self.history.append(bbox)
+    
+  def predict(self, frame_number=0):
+    """
+    Advances the state vector and returns the predicted bounding box estimate.
+    """
+    return [self.history[-1][:-1]]
+
+  def get_state(self):
+    """
+    Returns the current bounding box estimate.
+    """
+    return [self.history[-1][:-1]]
+  
+  def is_static(self):
+    """
+    Analyze if this track is static based on initial detections and final detections
+    """
+    if len(self.history) > 10:
+      history = self.history[:10]+self.history[-10:]
+      track_history = np.concatenate(history)
+      if track_history.ndim == 1:
+        track_history = track_history.reshape(len(track_history)//4, 4)
+      centers_std = np.std((track_history[:, [0, 1]] + track_history[:, [2, 3]]) / 2, 0)
+      _is_static = centers_std[0] < self.threshold and centers_std[1] < self.threshold
+      return _is_static
+    else:
+      return False
+
+
 def associate_detections_to_trackers(detections,trackers,feature_vectors=None, new_feature_vectors=None, iou_threshold = 0.3, beta=0.8):
   """
   Assigns detections to tracked object (both represented as bounding boxes)
@@ -221,7 +278,7 @@ def associate_detections_to_trackers(detections,trackers,feature_vectors=None, n
 
 
 class Sort(object):
-  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3):
+  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3, tracker_type="IoU"):
     """
     Sets key parameters for SORT
     """
@@ -232,6 +289,7 @@ class Sort(object):
     self.dead_trackers = []
     self.frame_count = 0
     self.online_filtering = online_filtering
+    self.tracker_instantiation = IoUTracker if tracker_type == "IoU" else KalmanBoxTracker 
 
   def update(self, image=None, dets=np.empty((0, 5)), frame_number=0):
     """
@@ -264,7 +322,7 @@ class Sort(object):
 
     # create and initialise new trackers for unmatched detections
     for i in unmatched_dets:
-        trk = KalmanBoxTracker(dets[i,:])
+        trk = self.tracker_instantiation(dets[i,:])
         self.trackers.append(trk)
     i = len(self.trackers)
     for trk in reversed(self.trackers):
