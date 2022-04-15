@@ -54,18 +54,31 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     max_frames_skip = args.frame_skip
     #track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
     # Compare to DeepSort
-    track_handler = Sort(online_filtering=False, max_age=max_frames_skip, iou_threshold=min_iou)  # Sort max_age=1, here its 5
+    track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type="kalman")  # Sort max_age=1, here its 5
 
-    # Prepare model
-    model, device = load_model(architecture_name, use_gpu)
+    # Check if detections have been saved previously
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
-    ckpt_path = os.path.join(model_folder_files, run_name+"_best.ckpt")
-    if not os.path.exists(ckpt_path):
-        print("No pretrained weights for this experiment name.")
+    cam_det_path = os.path.join(model_folder_files, os.path.basename(os.path.dirname(os.path.dirname(video_path))), os.path.basename(os.path.dirname(video_path)))
+    os.makedirs(cam_det_path, exist_ok=True)
+    det_path = os.path.join(cam_det_path, STORED_DETECTIONS_NAME)
+    exists_det_file = os.path.exists(det_path)
+
+    if exists_det_file:
+        # Read detection files
+        print("Reading detections file")
+        model_detections = utils.parse_predictions_rects(det_path)
+        
     else:
-        model.load_state_dict(torch.load(ckpt_path))
-        print(f"Model {run_name} loaded")
-    model.eval()
+        # Prepare model
+        model, device = load_model(architecture_name, use_gpu)
+    
+        ckpt_path = os.path.join(model_folder_files, run_name+"_best.ckpt")
+        if not os.path.exists(ckpt_path):
+            print("No pretrained weights for this experiment name.")
+        else:
+            model.load_state_dict(torch.load(ckpt_path))
+            print(f"Model {run_name} loaded")
+        model.eval()
     
     # Prepare video capture
     cap = cv2.VideoCapture(video_path)
@@ -77,13 +90,6 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     frame_number = first_frame
     
     ret, img = cap.read()
-    
-    # Check if detections have been saved previously
-    model_folder_files = os.path.join(model_folder_files, os.path.basename(os.path.dirname(os.path.dirname(video_path))), os.path.basename(os.path.dirname(video_path)))
-    os.makedirs(model_folder_files, exist_ok=True)
-    det_path = os.path.join(model_folder_files, STORED_DETECTIONS_NAME)
-    exists_det_file = os.path.exists(det_path)
-
     # Create metrics accumulator
     acc = mm.MOTAccumulator(auto_id=True)
 
@@ -92,11 +98,6 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     sequences = {os.path.basename(os.path.dirname(os.path.dirname(video_path))):
                  [os.path.basename(os.path.dirname(video_path))]}
     dataset = AICityDatasetDetector(dataset_path, sequences)
-
-    if exists_det_file:
-        # Read detection files
-        print("Reading detections file")
-        model_detections = utils.parse_predictions_rects(det_path)
         
     all_dets, all_gts = [], []
     with torch.no_grad():
@@ -125,7 +126,7 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 dets_keep = np.hstack([dets_keep, final_scores[final_scores > detection_threshold][:,np.newaxis]])
 
                 # Update tracker
-                dets = track_handler.update(dets_keep, frame_number=frame_number)
+                dets = track_handler.update(dets=dets_keep, frame_number=frame_number)
 
                 _, gt = dataset[frame_number]
                 all_dets.append(dets_keep)

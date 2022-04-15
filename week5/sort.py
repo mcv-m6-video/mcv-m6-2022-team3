@@ -196,6 +196,8 @@ class IoUTracker(object):
     """
     Updates the state vector with observed bbox.
     """
+    self.hits += 1
+    self.hit_streak += 1
     self.history.append(bbox)
     
   def predict(self, frame_number=0):
@@ -278,7 +280,7 @@ def associate_detections_to_trackers(detections,trackers,feature_vectors=None, n
 
 
 class Sort(object):
-  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3, tracker_type="IoU"):
+  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3, tracker_type="kalman"):
     """
     Sets key parameters for SORT
     """

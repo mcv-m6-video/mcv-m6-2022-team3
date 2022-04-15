@@ -49,15 +49,15 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     max_frames_skip = args.frame_skip
     #track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
     if True:
-        track_handler = Sort(max_age=max_frames_skip, iou_threshold=min_iou)  # Sort max_age=1, here its 5
+        track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type="IoU")  # Sort max_age=1, here its 5
     else:
         track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou)
 
     # Check if detections have been saved previously
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
-    model_folder_files = os.path.join(model_folder_files, os.path.basename(os.path.dirname(os.path.dirname(video_path))), os.path.basename(os.path.dirname(video_path)))
-    os.makedirs(model_folder_files, exist_ok=True)
-    det_path = os.path.join(model_folder_files, STORED_DETECTIONS_NAME)
+    cam_det_path = os.path.join(model_folder_files, os.path.basename(os.path.dirname(os.path.dirname(video_path))), os.path.basename(os.path.dirname(video_path)))
+    os.makedirs(cam_det_path, exist_ok=True)
+    det_path = os.path.join(cam_det_path, STORED_DETECTIONS_NAME)
     exists_det_file = os.path.exists(det_path)
 
     # Create metrics accumulator
@@ -142,17 +142,18 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 if display:
                     img_draw = img.copy()
                     for track in track_handler.trackers:
-                        if not track.is_static():
-                            det = track.get_state()[0]
-                            #det, _ = track.last_detection()
-                            img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), track.visualization_color, 2)
-                            img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1]-20)), (int(det[2]), int(det[1])), track.visualization_color, -2)
-                            img_draw = cv2.putText(img_draw, str(track.id), (int(det[0]), int(det[1])), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2)
-                            for detection in track.history:
-                                if detection.ndim == 2:
-                                    detection = detection[0]
-                                detection_center = ( int((detection[0]+detection[2])/2), int((detection[1]+detection[3])/2) )
-                                img_draw = cv2.circle(img_draw, detection_center, 5, track.visualization_color, -1)
+                        if track.time_since_update < 2:
+                            if not track.is_static():
+                                det = track.get_state()[0]
+                                #det, _ = track.last_detection()
+                                img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), track.visualization_color, 2)
+                                img_draw = cv2.rectangle(img_draw, (int(det[0]), int(det[1]-20)), (int(det[2]), int(det[1])), track.visualization_color, -2)
+                                img_draw = cv2.putText(img_draw, str(track.id), (int(det[0]), int(det[1])), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 0), 2)
+                                for detection in track.history:
+                                    if detection.ndim == 2:
+                                        detection = detection[0]
+                                    detection_center = ( int((detection[0]+detection[2])/2), int((detection[1]+detection[3])/2) )
+                                    img_draw = cv2.circle(img_draw, detection_center, 5, track.visualization_color, -1)
                             
                     cv2.imshow('Tracking results', cv2.resize(img_draw, (int(img_draw.shape[1]*0.5), int(img_draw.shape[0]*0.5))))
                     k = cv2.waitKey(1)
