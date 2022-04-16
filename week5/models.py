@@ -9,7 +9,7 @@ from torchvision.ops import nms
 from evaluation import show_annotations_and_predictions, voc_eval
 from tqdm import tqdm
 from copy import deepcopy
-#import wandb
+import wandb
 
 CAR_LABEL_NUM = 3
 WANDB_ENTITY = "aszummer"
@@ -123,14 +123,14 @@ def train(model, train_loader, test_loader, device, architecture_name,
                  save_path=None, log_bool=False, run_name='test'):
         # MODEL TRAINING
     if log_bool:
-        pass
+        # pass
         #   # 1. Start a new run
-        #wandb.init(project='MCVM6', entity=WANDB_ENTITY)
-        #wandb.run.name = run_name
-            # wandb.run.save()
+        wandb.init(project='MCVM6', entity=WANDB_ENTITY)
+        wandb.run.name = run_name
+        wandb.run.save()
 
     lr = 0.005
-    step_size = 7
+    step_size = 5
     print_freq = 10
     params = [p for p in model.parameters() if p.requires_grad]
     print("Params to train:", len(params))
@@ -155,8 +155,8 @@ def train(model, train_loader, test_loader, device, architecture_name,
         }
 
     if log_bool:
-        pass
-        #wandb.config = config_dict
+        # pass
+        wandb.config = config_dict
 
     # TODO: Add tensorboard logging or something
     for epoch in range(num_epochs):
@@ -170,6 +170,7 @@ def train(model, train_loader, test_loader, device, architecture_name,
             warmup_iterations = min(500, len(train_loader) - 1)
             warmup_factor = 1. / warmup_iterations
             lr_scheduler = warmup_lr_scheduler(optimizer, warmup_iterations, warmup_factor) """
+        loss_reduced_all = []
 
         for images, targets in tqdm(train_loader):#metric_logger.log_every(train_loader, print_freq, header):
             idxs_keep = [i for i in range(len(images)) if not targets[i] is None]
@@ -189,6 +190,7 @@ def train(model, train_loader, test_loader, device, architecture_name,
             # reduce losses over all GPUs for logging purposes
             loss_dict_reduced = tv_utils.reduce_dict(loss_dict)
             losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+            loss_reduced_all.append = losses_reduced
 
             optimizer.zero_grad()
             losses.backward()
@@ -196,10 +198,31 @@ def train(model, train_loader, test_loader, device, architecture_name,
 
             #metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
             #metric_logger.update(lr=optimizer.param_groups[0]["lr"])
+        else:
+            model.eval()
+            mAP = evaluate(model, test_loader, device)
+            mAPs.append(mAP)
+
+            losses_reduced_mean = np.array(loss_reduced_all).mean()
+
+            log_dict = {
+            'epoch': epoch + 1,
+            'train_loss': losses_reduced_mean,
+            'lr': optimizer.param_groups[0]["lr"],
+            'mAP': mAP
+            }
+            for k, v in loss_dict_reduced.items():
+                if isinstance(v, torch.Tensor):
+                    v = v.item()
+                    log_dict[k]=v
+
+            print("log_dict = ", log_dict)
+            print("config_dict = ", config_dict)
+            if log_bool:
+                wandb.log(log_dict)
     
-        model.eval()
-        mAPs.append(evaluate(model, test_loader, device))
-        model.train()
+
+        # model.train()
     
         if save_path is not None and mAPs[-1] > np.max(np.array(mAPs[:-1])):
             print("Saved Model to ", save_path)

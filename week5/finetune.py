@@ -49,7 +49,7 @@ def finetune(architecture_name, dataset_path, sequences, run_name, use_gpu=True)
         os.makedirs(model_folder_files,exist_ok=True)
 
     log_bool=True
-    num_epochs = 3
+    num_epochs = 10
     batch_size = 1
     
     test_transformations = torchvision.transforms.ToTensor()

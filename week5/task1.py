@@ -35,11 +35,12 @@ CAR_LABEL_NUM = 3
 FRAME_25PER = 510
 EXPERIMENTS_FOLDER = "experiments"
 STORED_DETECTIONS_NAME = "dets.txt"
+STORED_FEATURES_NAME = "features.txt"
 SHOW_THR = 0.5
 RESULTS_FILENAME = "results"
 
 
-def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=True, display=True):
+def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=True, display=True, deep_sort = False):
     """
     Object tracking: tracking by Kalman
     3 parameters: detection threshold, minimum iou to match track, and maximum frames to skip between tracked boxes.
@@ -48,10 +49,10 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     min_iou = args.min_iou
     max_frames_skip = args.frame_skip
     #track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
-    if True:
-        track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type="kcf")  # Sort max_age=1, here its 5
+    if deep_sort == False:
+        track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type="kalman")  # Sort max_age=1, here its 5
     else:
-        track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou)
+        track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou, tracker_type="kalman")
 
     # Check if detections have been saved previously
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
@@ -59,6 +60,9 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     os.makedirs(cam_det_path, exist_ok=True)
     det_path = os.path.join(cam_det_path, STORED_DETECTIONS_NAME)
     exists_det_file = os.path.exists(det_path)
+
+    features_path= os.path.join(cam_det_path, STORED_FEATURES_NAME)
+    exists_features_file = os.path.exists(features_path)
 
     # Create metrics accumulator
     acc = mm.MOTAccumulator(auto_id=True)
@@ -69,11 +73,15 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                  [os.path.basename(os.path.dirname(video_path))]}
     dataset = AICityDatasetDetector(dataset_path, sequences)
 
+    model_feature_vectors = []
     if exists_det_file:
         # Read detection files
         print("Reading detections file")
         model_detections = utils.parse_predictions_rects(det_path)
-        
+
+        if exists_features_file:
+            print("Reading features file")
+            model_feature_vectors = utils.parse_feature_vectors(features_path)
     else:
         # Prepare model
         model, device = load_model(architecture_name, use_gpu)
@@ -120,7 +128,15 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 dets_keep = np.hstack([dets_keep, final_scores[final_scores > detection_threshold][:,np.newaxis]])
 
                 # Update tracker
-                dets = track_handler.update(image=img, dets=dets_keep)
+                if deep_sort == False:
+                    dets = track_handler.update(image=img, dets=dets_keep)
+                else:
+                    if exists_features_file:
+                        frame_feature_vectors = model_feature_vectors[1][frame_ids == frame_number]
+                    else:
+                        frame_feature_vectors = np.empty((0,0))
+                        
+                    dets, feature_vectors = track_handler.update(image=img, dets=dets_keep, frame_feature_vectors = frame_feature_vectors)
 
                 _, gt = dataset[frame_number]
                 if gt:
@@ -171,10 +187,20 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 pbar.update(1)
                 
                 if SAVE_DETS and not exists_det_file:
+                    feature_vectors = [feat.numpy()[0].round(4) for feat in feature_vectors]
                     with open(det_path, 'a') as f:
-                       for idx in range(len(final_dets)):
-                            detection = final_dets[idx]
-                            f.write(f'{frame_number}, -1, {detection[0]}, {detection[1]}, {detection[2]-detection[0]}, {detection[3]-detection[1]}, {final_scores[idx]}, -1, -1, -1\n')
+                       for idx in range(len(dets_keep)):
+                            detection = dets_keep[idx]
+                            f.write(f'{frame_number}, -1, {detection[0]}, {detection[1]}, {detection[2]-detection[0]}, {detection[3]-detection[1]}, {final_scores[idx]}, -1, -1, -1')
+                            # f.write(str(feature_vectors[idx]).replace('\n',''))
+                            f.write('\n')
+
+                    with open(features_path, 'a') as f:
+                        for idx in range(len(feature_vectors)):
+                            # f.write(str(feature_vectors[idx]).replace('\n',''))
+                            f.write(f'{frame_number},')
+                            f.write(','.join([str(round(x,4)) for x in feature_vectors[idx].tolist()]))
+                            f.write('\n')
 
     # TODO: When IDF1 is implemented evaluate with different hyperparameters
     mh = mm.metrics.create()
@@ -227,13 +253,18 @@ def parse_arguments():
                         default=5,
                         type=int,
                         help="Number of frames for which a track is still considerated lived")
+    parser.add_argument("-deep",
+                    dest="deep_sort",
+                    action="store_true",
+                    default=False,
+                    help="Enable deep sort")
     args = parser.parse_args()
 
-    return args.input_video, args.architecture_name, args.display, args.use_gpu, args.run_name, args
+    return args.input_video, args.architecture_name, args.display, args.use_gpu, args.run_name, args.deep_sort, args
     
 if __name__ == "__main__":
-    input_video, architecture_name, display, use_gpu, run_name, args = parse_arguments()
-    task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display)
+    input_video, architecture_name, display, use_gpu, run_name, deep_sort, args= parse_arguments()
+    task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
     
     
 """
