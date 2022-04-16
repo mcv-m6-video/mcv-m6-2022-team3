@@ -316,7 +316,7 @@ def associate_detections_to_trackers(detections,trackers,feature_vectors=None, n
   iou_matrix = iou_batch(detections, trackers)
   sim_matrix = iou_matrix
   if not feature_vectors is None:
-    if len(feature_vectors) > 0:
+    if len(feature_vectors) > 0 and len(new_feature_vectors) > 0:
       feature_vectors, new_feature_vectors = np.concatenate(feature_vectors, 0), np.concatenate(new_feature_vectors, 0)
       reid_matrix = new_feature_vectors@feature_vectors.transpose(1, 0)
       sim_matrix = sim_matrix * (1-beta) + reid_matrix * beta
