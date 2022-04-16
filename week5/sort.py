@@ -24,6 +24,7 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from skimage import io
+import cv2
 
 import glob
 import time
@@ -98,7 +99,7 @@ class KalmanBoxTracker(object):
   This class represents the internal state of individual tracked objects observed as bbox.
   """
   count = 0
-  def __init__(self,bbox):
+  def __init__(self, frame, bbox):
     """
     Initialises a tracker using initial bounding box.
     """
@@ -126,7 +127,7 @@ class KalmanBoxTracker(object):
     self.hit_streak = 0
     self.age = 0
 
-  def update(self,bbox):
+  def update(self, frame, bbox):
     """
     Updates the state vector with observed bbox.
     """
@@ -135,7 +136,7 @@ class KalmanBoxTracker(object):
     self.hit_streak += 1
     self.kf.update(convert_bbox_to_z(bbox))
 
-  def predict(self, frame_number=0):
+  def predict(self, frame, frame_number=0):
     """
     Advances the state vector and returns the predicted bounding box estimate.
     """
@@ -175,7 +176,7 @@ class IoUTracker(object):
   This class represents the internal state of individual tracked objects observed as bbox.
   """
   count = 0
-  def __init__(self,bbox):
+  def __init__(self, frame, bbox):
     """
     Initialises a tracker using initial bounding box.
     """
@@ -192,7 +193,7 @@ class IoUTracker(object):
     self.hit_streak = 0
     self.age = 0
 
-  def update(self,bbox):
+  def update(self, frame, bbox):
     """
     Updates the state vector with observed bbox.
     """
@@ -200,7 +201,7 @@ class IoUTracker(object):
     self.hit_streak += 1
     self.history.append(bbox)
     
-  def predict(self, frame_number=0):
+  def predict(self, frame, frame_number=0):
     """
     Advances the state vector and returns the predicted bounding box estimate.
     """
@@ -220,7 +221,82 @@ class IoUTracker(object):
       history = self.history[:10]+self.history[-10:]
       track_history = np.concatenate(history)
       if track_history.ndim == 1:
-        track_history = track_history.reshape(len(track_history)//4, 4)
+        track_history = track_history.reshape(len(track_history)//5, 5)
+      centers_std = np.std((track_history[:, [0, 1]] + track_history[:, [2, 3]]) / 2, 0)
+      _is_static = centers_std[0] < self.threshold and centers_std[1] < self.threshold
+      return _is_static
+    else:
+      return False
+    
+class KCFTracker(object):
+  """
+  This class represents the internal state of individual tracked objects observed as bbox.
+  """
+  count = 0
+  def __init__(self, frame, bbox):
+    """
+    Initialises a tracker using initial bounding box.
+    """
+    #define constant velocity model
+    self.cv_tracker = cv2.TrackerKCF_create()
+    bbox_int = bbox.astype(int)
+    self.cv_tracker.init(frame, (bbox_int[0], bbox_int[1], bbox_int[2]-bbox_int[0], bbox_int[3]-bbox_int[1]))
+    self.time_since_update = 0
+    self.id = KCFTracker.count
+    KCFTracker.count += 1
+    self.visualization_color = (int(random.random() * 256), int(random.random() * 256), int(random.random() * 256))
+    self.history = [bbox]
+    self.frames = []
+    self.threshold = 10
+    
+    self.hits = 0
+    self.hit_streak = 0
+    self.age = 0
+
+  def update(self, frame, bbox):
+    """
+    Updates the tracker with new observed bbox -> Create new KCF tracker.
+    """
+    self.time_since_update = 0
+    self.hits += 1
+    self.hit_streak += 1
+    self.cv_tracker = cv2.TrackerKCF_create()
+    bbox_int = bbox.astype(int)
+    self.cv_tracker.init(frame, (bbox_int[0], bbox_int[1], bbox_int[2]-bbox_int[0], bbox_int[3]-bbox_int[1]))
+
+  def predict(self, frame, frame_number=0):
+    """
+    Advances the state vector and returns the predicted bounding box estimate.
+    """
+    self.age += 1
+    if(self.time_since_update>0):
+      self.hit_streak = 0
+    self.time_since_update += 1
+    
+    (success, (x, y, w, h)) = self.cv_tracker.update(frame)
+    
+    if success:
+      self.history.append(np.array([x, y, x+w, y+h, 1]))
+    else:
+      self.history.append(self.history[-1])
+    self.frames.append(frame_number)
+    return [self.history[-1][:-1]]
+
+  def get_state(self):
+    """
+    Returns the current bounding box estimate.
+    """
+    return [self.history[-1][:-1]]
+  
+  def is_static(self):
+    """
+    Analyze if this track is static based on initial detections and final detections
+    """
+    if len(self.history) > 10:
+      history = self.history[:10]+self.history[-10:]
+      track_history = np.concatenate(history)
+      if track_history.ndim == 1:
+        track_history = track_history.reshape(len(track_history)//5, 5)
       centers_std = np.std((track_history[:, [0, 1]] + track_history[:, [2, 3]]) / 2, 0)
       _is_static = centers_std[0] < self.threshold and centers_std[1] < self.threshold
       return _is_static
@@ -291,7 +367,15 @@ class Sort(object):
     self.dead_trackers = []
     self.frame_count = 0
     self.online_filtering = online_filtering
-    self.tracker_instantiation = IoUTracker if tracker_type == "IoU" else KalmanBoxTracker 
+    self.tracker_instantiation = None
+    if tracker_type == "IoU":
+      self.tracker_instantiation = IoUTracker
+    elif tracker_type == "kalman":
+      self.tracker_instantiation = KalmanBoxTracker
+    elif tracker_type == "kcf":
+      self.tracker_instantiation = KCFTracker
+    else:
+      raise ValueError("Tracker of type", tracker_type, "does not exist. Available options: [IoU, kalman, kcf]")
 
   def update(self, image=None, dets=np.empty((0, 5)), frame_number=0):
     """
@@ -308,7 +392,7 @@ class Sort(object):
     to_del = []
     ret = []
     for t, trk in enumerate(trks):
-      pos = self.trackers[t].predict(frame_number)[0]
+      pos = self.trackers[t].predict(image, frame_number)[0]
       trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
       if np.any(np.isnan(pos)):
         to_del.append(t)
@@ -320,11 +404,11 @@ class Sort(object):
 
     # update matched trackers with assigned detections
     for m in matched:
-      self.trackers[m[1]].update(dets[m[0], :])
+      self.trackers[m[1]].update(image, dets[m[0], :])
 
     # create and initialise new trackers for unmatched detections
     for i in unmatched_dets:
-        trk = self.tracker_instantiation(dets[i,:])
+        trk = self.tracker_instantiation(image, dets[i,:])
         self.trackers.append(trk)
     i = len(self.trackers)
     for trk in reversed(self.trackers):

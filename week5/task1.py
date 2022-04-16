@@ -49,7 +49,7 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     max_frames_skip = args.frame_skip
     #track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
     if True:
-        track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type="IoU")  # Sort max_age=1, here its 5
+        track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type="kcf")  # Sort max_age=1, here its 5
     else:
         track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou)
 
