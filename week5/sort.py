@@ -316,7 +316,7 @@ def associate_detections_to_trackers(detections,trackers,feature_vectors=None, n
   iou_matrix = iou_batch(detections, trackers)
   sim_matrix = iou_matrix
   if not feature_vectors is None:
-    if len(feature_vectors) > 0:
+    if len(feature_vectors) > 0 and len(new_feature_vectors) > 0:
       feature_vectors, new_feature_vectors = np.concatenate(feature_vectors, 0), np.concatenate(new_feature_vectors, 0)
       reid_matrix = new_feature_vectors@feature_vectors.transpose(1, 0)
       sim_matrix = sim_matrix * (1-beta) + reid_matrix * beta
@@ -484,11 +484,21 @@ class Sort(object):
     return all_detections
   
 class DeepSORT(Sort):
-  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3):
-    super().__init__(online_filtering=online_filtering, max_age=max_age, min_hits=min_hits, iou_threshold=iou_threshold)
+  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3, tracker_type="kalman"):
+    super().__init__(online_filtering=online_filtering, max_age=max_age, min_hits=min_hits, iou_threshold=iou_threshold, tracker_type= tracker_type)
+    if tracker_type == "IoU":
+      self.tracker_instantiation = IoUWithFeatures
+    elif tracker_type == "kalman":
+      self.tracker_instantiation = KalmanWithFeatures
+    elif tracker_type == "kcf":
+      #Not Tested
+      self.tracker_instantiation = KCFWithFeatures
+    else:
+      raise ValueError("Tracker of type", tracker_type, "does not exist. Available options: [IoU, kalman, kcf]")
+
     self.reid_model = ReIDNetwork()
     
-  def update(self, image=None, dets=np.empty((0, 5)), frame_number=0):
+  def update(self, image=None, dets=np.empty((0, 5)), frame_number=0, frame_feature_vectors = np.empty((0,0))):
     """
     Params:
       dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
@@ -514,12 +524,16 @@ class DeepSORT(Sort):
       dead_track = self.trackers.pop(t)
       self.dead_trackers.append(dead_track)
     new_feature_vectors = []
-    for det in dets:
-      det = det.astype(np.int)
-      x1,y1,x2,y2,_ = det
-      car_patch = image[y1:y2, x1:x2]
-      feature_vector = self.reid_model.extract_features(car_patch)
-      new_feature_vectors.append(feature_vector)
+
+    if frame_feature_vectors.shape[0] != 0:
+      new_feature_vectors = frame_feature_vectors.tolist()
+    else:
+      for det in dets:
+        det = det.astype(np.int)
+        x1,y1,x2,y2,_ = det
+        car_patch = image[y1:y2, x1:x2]
+        feature_vector = self.reid_model.extract_features(car_patch)
+        new_feature_vectors.append(feature_vector)
     
     matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks, feature_vectors=feature_vectors, new_feature_vectors=new_feature_vectors, iou_threshold=self.iou_threshold)
 
@@ -527,14 +541,20 @@ class DeepSORT(Sort):
     for m in matched:
       x1,y1,x2,y2,_ = dets[m[0], :].astype(np.int)
       car_patch = image[y1:y2, x1:x2]
-      self.trackers[m[1]].update(dets[m[0], :], new_feature_vectors[m[0]])
+      self.trackers[m[1]].update(image, dets[m[0], :], new_feature_vectors[m[0]])
 
     # create and initialise new trackers for unmatched detections
     for i in unmatched_dets:
         x1,y1,x2,y2,_ = dets[i, :].astype(np.int)
         car_patch = image[y1:y2, x1:x2]
-        feature_vector = self.reid_model.extract_features(car_patch)
-        trk = KalmanWithFeatures(dets[i,:], new_feature_vectors[i])
+
+        if frame_feature_vectors.shape[0] !=0:
+          feature_vector = new_feature_vectors[i]
+        else:
+          feature_vector = self.reid_model.extract_features(car_patch)
+
+        # trk = KalmanWithFeatures(dets[i,:], new_feature_vectors[i])
+        trk = self.tracker_instantiation(image, dets[i,:], feature_vector)
         self.trackers.append(trk)
     i = len(self.trackers)
     for trk in reversed(self.trackers):
@@ -553,21 +573,46 @@ class DeepSORT(Sort):
           self.dead_trackers.append(dead_track)
           
     if(len(ret)>0):
-      return np.concatenate(ret)
-    return np.empty((0,5))
+      return np.concatenate(ret), new_feature_vectors
+    return np.empty((0,5)), new_feature_vectors
   
 class KalmanWithFeatures(KalmanBoxTracker):
-  def __init__(self, bbox, feature_vector, alpha=0.7):
-    super().__init__(bbox)
+  def __init__(self, frame, bbox, feature_vector, alpha=0.7):
+    super().__init__(frame, bbox)
     self.feature_vector = feature_vector
     self.alpha = alpha
     
-  def update(self, bbox, new_feature_vector):
+  def update(self, frame, bbox, new_feature_vector):
     # Here update bbox and feature_vector
-    super().update(bbox)
+    super().update(frame, bbox)
     # update feature_vector
     self.feature_vector = self.alpha * new_feature_vector + (1-self.alpha) * self.feature_vector
     self.feature_vector = self.feature_vector / np.linalg.norm(self.feature_vector, ord=2)
+  
+class IoUWithFeatures(IoUTracker):
+  def __init__(self, frame,bbox, feature_vector, alpha = 0.7):
+    super().__init__(frame, bbox)
+    self.feature_vector = feature_vector
+    self.alpha = alpha
+
+  def update(self, frame, bbox, new_feature_vector):
+    super().update(frame,bbox)
+    # update feature_vector
+    self.feature_vector = self.alpha * new_feature_vector + (1-self.alpha) * self.feature_vector
+    self.feature_vector = self.feature_vector / np.linalg.norm(self.feature_vector, ord=2)
+
+class KCFWithFeatures(KCFTracker):
+  def __init__(self, frame,bbox, feature_vector, alpha = 0.7):
+    super().__init__(frame, bbox)
+    self.feature_vector = feature_vector
+    self.alpha = alpha
+
+  def update(self, frame, bbox, new_feature_vector):
+    super().update(frame,bbox)
+    # update feature_vector
+    self.feature_vector = self.alpha * new_feature_vector + (1-self.alpha) * self.feature_vector
+    self.feature_vector = self.feature_vector / np.linalg.norm(self.feature_vector, ord=2)
+
 
 def parse_args():
     """Parse input arguments."""

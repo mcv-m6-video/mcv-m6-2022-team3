@@ -179,6 +179,28 @@ def parse_predictions_rects(path):
 
     return predictions_dict, [df['frame'].values, bboxes, df['conf'].values]
 
+def parse_feature_vectors(path):
+    """
+    Input:
+        - path to annotation txt where 512 values per row of feature vectors are stored
+    Output:
+        list of torch.tensors of shape [1,512]
+    """
+
+    COL_NAMES = [str(x) for x in range(0,512)]
+    COL_NAMES.insert(0,'frame')
+    df = pd.read_csv(path, delimiter=',', names=COL_NAMES)
+
+    list_of_feature_vectors = []
+    for row in range(df.shape[0]):
+        tab = np.array(df.iloc[row,1:])
+        tab = tab.reshape((1,512))
+        tab_torch = torch.from_numpy(tab).type(torch.float32)
+        list_of_feature_vectors.append(tab_torch)
+    
+    return [df['frame'].values, np.array(list_of_feature_vectors)]
+
+
 def predictions_to_gt_format(frame_ids, tot_boxes):
     preds_formatted = {}
     for i in np.unique(frame_ids):
