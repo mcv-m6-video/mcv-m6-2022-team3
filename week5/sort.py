@@ -573,7 +573,7 @@ class DeepSORT(Sort):
           
     if(len(ret)>0):
       return np.concatenate(ret), new_feature_vectors
-    return np.empty((0,5)), []
+    return np.empty((0,5)), new_feature_vectors
   
 class KalmanWithFeatures(KalmanBoxTracker):
   def __init__(self, frame, bbox, feature_vector, alpha=0.7):

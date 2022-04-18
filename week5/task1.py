@@ -11,6 +11,7 @@ from tkinter import E
 import cv2
 import numpy as np
 from argparse import ArgumentParser
+from pathlib import Path
 
 import scipy
 from utils import read_annotations, image_to_tensor
@@ -34,8 +35,8 @@ SAVE_DETS = True
 CAR_LABEL_NUM = 3
 FRAME_25PER = 510
 EXPERIMENTS_FOLDER = "experiments"
-STORED_DETECTIONS_NAME = "dets.txt"
-STORED_FEATURES_NAME = "features.txt"
+STORED_DETECTIONS_NAME = "dets_all.txt"
+STORED_FEATURES_NAME = "features_all.txt"
 SHOW_THR = 0.5
 RESULTS_FILENAME = "results"
 
@@ -132,10 +133,11 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                     dets = track_handler.update(image=img, dets=dets_keep)
                 else:
                     if exists_features_file:
-                        frame_feature_vectors = model_feature_vectors[1][frame_ids == frame_number]
+                        final_features = model_feature_vectors[1][frame_ids == frame_number]
+                        frame_feature_vectors = final_features[final_scores > detection_threshold]
                     else:
                         frame_feature_vectors = np.empty((0,0))
-                        
+
                     dets, feature_vectors = track_handler.update(image=img, dets=dets_keep, frame_feature_vectors = frame_feature_vectors)
 
                 _, gt = dataset[frame_number]
@@ -187,7 +189,6 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 pbar.update(1)
                 
                 if SAVE_DETS and not exists_det_file:
-                    feature_vectors = [feat.numpy()[0].round(4) for feat in feature_vectors]
                     with open(det_path, 'a') as f:
                        for idx in range(len(dets_keep)):
                             detection = dets_keep[idx]
@@ -195,12 +196,14 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                             # f.write(str(feature_vectors[idx]).replace('\n',''))
                             f.write('\n')
 
-                    with open(features_path, 'a') as f:
-                        for idx in range(len(feature_vectors)):
-                            # f.write(str(feature_vectors[idx]).replace('\n',''))
-                            f.write(f'{frame_number},')
-                            f.write(','.join([str(round(x,4)) for x in feature_vectors[idx].tolist()]))
-                            f.write('\n')
+                    if deep_sort:
+                        feature_vectors = [feat.numpy()[0].round(4) for feat in feature_vectors]
+                        with open(features_path, 'a') as f:
+                            for idx in range(len(feature_vectors)):
+                                # f.write(str(feature_vectors[idx]).replace('\n',''))
+                                f.write(f'{frame_number},')
+                                f.write(','.join([str(round(x,4)) for x in feature_vectors[idx].tolist()]))
+                                f.write('\n')
 
     # TODO: When IDF1 is implemented evaluate with different hyperparameters
     mh = mm.metrics.create()
@@ -208,6 +211,43 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     print(summary)
 
     cv2.destroyAllWindows()
+
+def generate_all_features(architecture_name, input_video, run_name, args, first_frame, use_gpu, display, deep_sort):
+    path_to_seqs = Path("/home/aszummer/Documents/MCV/M6/mcvm6team3/data/aic19-track1-mtmc-train/train")
+    paths_to_seqs = list(path_to_seqs.iterdir())
+
+    deep_sort = True
+    display = False
+
+    for sequences in paths_to_seqs:
+        paths_to_cams = list(sequences.iterdir())
+        print(sequences)
+
+        if sequences.name == 'S01':
+            run_name = 'FasterRCNN_finetune_S03_S04_e2'
+            for cams in paths_to_cams:
+                input_video = str(cams/'vdo.avi')
+                print(input_video)
+                display = False
+                task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
+
+        if sequences.name == 'S03':
+            run_name = 'FasterRCNN_finetune_S01_S04_e2'
+            for cams in paths_to_cams:
+                input_video = str(cams/'vdo.avi')
+                print(input_video)
+                display = False
+                task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
+
+        # if sequences.name == 'S04':
+        #     run_name = 'FasterRCNN_finetune_S01_S03_e2'
+        #     for cams in paths_to_cams:
+        #         input_video = str(cams/'vdo.avi')
+        #         print(input_video)
+        #         display = False
+        #         task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
+
+    print('done')
 
 def parse_arguments():
     parser = ArgumentParser()
@@ -265,6 +305,7 @@ def parse_arguments():
 if __name__ == "__main__":
     input_video, architecture_name, display, use_gpu, run_name, deep_sort, args= parse_arguments()
     task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
+    # generate_all_features(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
     
     
 """
