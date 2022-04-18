@@ -139,6 +139,7 @@ data
 bg_gaussian_data
 *.csv
 *.gif
+*.png
 .vscode
 wandb
 results
