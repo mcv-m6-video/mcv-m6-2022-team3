@@ -487,11 +487,12 @@ class DeepSORT(Sort):
   def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3, tracker_type="kalman"):
     super().__init__(online_filtering=online_filtering, max_age=max_age, min_hits=min_hits, iou_threshold=iou_threshold, tracker_type= tracker_type)
     if tracker_type == "IoU":
-      self.tracker_instantiation = IoUTracker
+      self.tracker_instantiation = IoUWithFeatures
     elif tracker_type == "kalman":
       self.tracker_instantiation = KalmanWithFeatures
     elif tracker_type == "kcf":
-      self.tracker_instantiation = KCFTracker
+      #Not Tested
+      self.tracker_instantiation = KCFWithFeatures
     else:
       raise ValueError("Tracker of type", tracker_type, "does not exist. Available options: [IoU, kalman, kcf]")
 
@@ -587,6 +588,31 @@ class KalmanWithFeatures(KalmanBoxTracker):
     # update feature_vector
     self.feature_vector = self.alpha * new_feature_vector + (1-self.alpha) * self.feature_vector
     self.feature_vector = self.feature_vector / np.linalg.norm(self.feature_vector, ord=2)
+  
+class IoUWithFeatures(IoUTracker):
+  def __init__(self, frame,bbox, feature_vector, alpha = 0.7):
+    super().__init__(frame, bbox)
+    self.feature_vector = feature_vector
+    self.alpha = alpha
+
+  def update(self, frame, bbox, new_feature_vector):
+    super().update(frame,bbox)
+    # update feature_vector
+    self.feature_vector = self.alpha * new_feature_vector + (1-self.alpha) * self.feature_vector
+    self.feature_vector = self.feature_vector / np.linalg.norm(self.feature_vector, ord=2)
+
+class KCFWithFeatures(KCFTracker):
+  def __init__(self, frame,bbox, feature_vector, alpha = 0.7):
+    super().__init__(frame, bbox)
+    self.feature_vector = feature_vector
+    self.alpha = alpha
+
+  def update(self, frame, bbox, new_feature_vector):
+    super().update(frame,bbox)
+    # update feature_vector
+    self.feature_vector = self.alpha * new_feature_vector + (1-self.alpha) * self.feature_vector
+    self.feature_vector = self.feature_vector / np.linalg.norm(self.feature_vector, ord=2)
+
 
 def parse_args():
     """Parse input arguments."""

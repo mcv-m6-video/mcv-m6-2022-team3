@@ -1,3 +1,4 @@
+import string
 import cv2
 import os
 #import time
@@ -41,7 +42,7 @@ SHOW_THR = 0.5
 RESULTS_FILENAME = "results"
 
 
-def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=True, display=True, deep_sort = False):
+def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=True, display=True, deep_sort = False, tracker = 'kalman'):
     """
     Object tracking: tracking by Kalman
     3 parameters: detection threshold, minimum iou to match track, and maximum frames to skip between tracked boxes.
@@ -51,9 +52,9 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     max_frames_skip = args.frame_skip
     #track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
     if deep_sort == False:
-        track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type="kalman")  # Sort max_age=1, here its 5
+        track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type=tracker)  # Sort max_age=1, here its 5
     else:
-        track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou, tracker_type="kalman")
+        track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou, tracker_type=tracker)
 
     # Check if detections have been saved previously
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
@@ -239,13 +240,13 @@ def generate_all_features(architecture_name, input_video, run_name, args, first_
                 display = False
                 task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
 
-        # if sequences.name == 'S04':
-        #     run_name = 'FasterRCNN_finetune_S01_S03_e2'
-        #     for cams in paths_to_cams:
-        #         input_video = str(cams/'vdo.avi')
-        #         print(input_video)
-        #         display = False
-        #         task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
+        if sequences.name == 'S04':
+            run_name = 'FasterRCNN_finetune_S01_S03_e2'
+            for cams in paths_to_cams:
+                input_video = str(cams/'vdo.avi')
+                print(input_video)
+                display = False
+                task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
 
     print('done')
 
@@ -298,13 +299,18 @@ def parse_arguments():
                     action="store_true",
                     default=False,
                     help="Enable deep sort")
+    parser.add_argument("-t",
+                        dest="tracker",
+                        type=str,
+                        default='kalman',
+                        help="Use kalman, IoU or kcf")
     args = parser.parse_args()
 
-    return args.input_video, args.architecture_name, args.display, args.use_gpu, args.run_name, args.deep_sort, args
+    return args.input_video, args.architecture_name, args.display, args.use_gpu, args.run_name, args.deep_sort, args.tracker, args
     
 if __name__ == "__main__":
-    input_video, architecture_name, display, use_gpu, run_name, deep_sort, args= parse_arguments()
-    task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
+    input_video, architecture_name, display, use_gpu, run_name, deep_sort, tracker, args= parse_arguments()
+    task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort= deep_sort, tracker= tracker)
     # generate_all_features(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
     
     
