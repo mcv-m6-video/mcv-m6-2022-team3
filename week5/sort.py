@@ -356,7 +356,7 @@ def associate_detections_to_trackers(detections,trackers,feature_vectors=None, n
 
 
 class Sort(object):
-  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3, tracker_type="kalman"):
+  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3, tracker_type="kalman", beta = 0.8):
     """
     Sets key parameters for SORT
     """
@@ -376,6 +376,8 @@ class Sort(object):
       self.tracker_instantiation = KCFTracker
     else:
       raise ValueError("Tracker of type", tracker_type, "does not exist. Available options: [IoU, kalman, kcf]")
+    
+    self.beta = beta
 
   def update(self, image=None, dets=np.empty((0, 5)), frame_number=0):
     """
@@ -400,7 +402,7 @@ class Sort(object):
     for t in reversed(to_del):
       dead_track = self.trackers.pop(t)
       self.dead_trackers.append(dead_track)
-    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks, iou_threshold=self.iou_threshold)
+    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets,trks, iou_threshold=self.iou_threshold, beta = self.beta)
 
     # update matched trackers with assigned detections
     for m in matched:
@@ -484,8 +486,8 @@ class Sort(object):
     return all_detections
   
 class DeepSORT(Sort):
-  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3, tracker_type="kalman"):
-    super().__init__(online_filtering=online_filtering, max_age=max_age, min_hits=min_hits, iou_threshold=iou_threshold, tracker_type= tracker_type)
+  def __init__(self, online_filtering=False, max_age=1, min_hits=3, iou_threshold=0.3, tracker_type="kalman", alpha = 0.7, beta = 0.8):
+    super().__init__(online_filtering=online_filtering, max_age=max_age, min_hits=min_hits, iou_threshold=iou_threshold, tracker_type= tracker_type, beta = beta)
     if tracker_type == "IoU":
       self.tracker_instantiation = IoUWithFeatures
     elif tracker_type == "kalman":
@@ -497,6 +499,7 @@ class DeepSORT(Sort):
       raise ValueError("Tracker of type", tracker_type, "does not exist. Available options: [IoU, kalman, kcf]")
 
     self.reid_model = ReIDNetwork()
+    self.alpha = alpha
     
   def update(self, image=None, dets=np.empty((0, 5)), frame_number=0, frame_feature_vectors = np.empty((0,0))):
     """
@@ -535,7 +538,7 @@ class DeepSORT(Sort):
         feature_vector = self.reid_model.extract_features(car_patch)
         new_feature_vectors.append(feature_vector)
     
-    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks, feature_vectors=feature_vectors, new_feature_vectors=new_feature_vectors, iou_threshold=self.iou_threshold)
+    matched, unmatched_dets, unmatched_trks = associate_detections_to_trackers(dets, trks, feature_vectors=feature_vectors, new_feature_vectors=new_feature_vectors, iou_threshold=self.iou_threshold, beta = self.beta)
 
     # update matched trackers with assigned detections
     for m in matched:
@@ -554,7 +557,7 @@ class DeepSORT(Sort):
           feature_vector = self.reid_model.extract_features(car_patch)
 
         # trk = KalmanWithFeatures(dets[i,:], new_feature_vectors[i])
-        trk = self.tracker_instantiation(image, dets[i,:], feature_vector)
+        trk = self.tracker_instantiation(image, dets[i,:], feature_vector, alpha = self.alpha)
         self.trackers.append(trk)
     i = len(self.trackers)
     for trk in reversed(self.trackers):

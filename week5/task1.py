@@ -1,11 +1,14 @@
 import string
+from unittest import skip
 import cv2
 import os
 #import time
 #from collections import defaultdict
+from itertools import product
 
 import numpy as np
 import cv2
+import pandas as pd
 #import imageio
 
 from tkinter import E
@@ -42,19 +45,20 @@ SHOW_THR = 0.5
 RESULTS_FILENAME = "results"
 
 
-def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=True, display=True, deep_sort = False, tracker = 'kalman'):
+def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=True, display=True, deep_sort = False, tracker = 'kalman', grid_search_dict = {}):
     """
     Object tracking: tracking by Kalman
     3 parameters: detection threshold, minimum iou to match track, and maximum frames to skip between tracked boxes.
     """
-    detection_threshold = args.det_thr
-    min_iou = args.min_iou
-    max_frames_skip = args.frame_skip
+    detection_threshold = grid_search_dict['conf_thresh']
+    min_iou = grid_search_dict['iou_threshold']
+    max_frames_skip = grid_search_dict['skip_frames']
+
     #track_handler = TrackHandlerOverlap(max_frame_skip=max_frames_skip, min_iou=min_iou)
     if deep_sort == False:
-        track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type=tracker)  # Sort max_age=1, here its 5
+        track_handler = Sort(online_filtering=True, max_age=max_frames_skip, iou_threshold=min_iou, tracker_type=tracker, beta = grid_search_dict['beta'])  # Sort max_age=1, here its 5
     else:
-        track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou, tracker_type=tracker)
+        track_handler = DeepSORT(max_age=max_frames_skip, iou_threshold=min_iou, tracker_type=tracker, alpha=grid_search_dict['alpha'], beta = grid_search_dict['beta'])
 
     # Check if detections have been saved previously
     model_folder_files = os.path.join(EXPERIMENTS_FOLDER, run_name)
@@ -129,9 +133,9 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                 dets_keep = final_dets[final_scores > detection_threshold]
                 dets_keep = np.hstack([dets_keep, final_scores[final_scores > detection_threshold][:,np.newaxis]])
 
-                # Update tracker
+                # Update trackere
                 if deep_sort == False:
-                    dets = track_handler.update(image=img, dets=dets_keep)
+                    dets = track_handler.update(image=img, dets=dets_keep, frame_number=frame_number)
                 else:
                     if exists_features_file:
                         final_features = model_feature_vectors[1][frame_ids == frame_number]
@@ -139,7 +143,7 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                     else:
                         frame_feature_vectors = np.empty((0,0))
 
-                    dets, feature_vectors = track_handler.update(image=img, dets=dets_keep, frame_feature_vectors = frame_feature_vectors)
+                    dets, feature_vectors = track_handler.update(image=img, dets=dets_keep, frame_feature_vectors = frame_feature_vectors, frame_number=frame_number)
 
                 _, gt = dataset[frame_number]
                 if gt:
@@ -213,6 +217,8 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
 
     cv2.destroyAllWindows()
 
+    return summary
+
 def generate_all_features(architecture_name, input_video, run_name, args, first_frame, use_gpu, display, deep_sort):
     path_to_seqs = Path("/home/aszummer/Documents/MCV/M6/mcvm6team3/data/aic19-track1-mtmc-train/train")
     paths_to_seqs = list(path_to_seqs.iterdir())
@@ -249,6 +255,72 @@ def generate_all_features(architecture_name, input_video, run_name, args, first_
                 task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
 
     print('done')
+
+def grid_search(architecture_name, input_video, run_name, args, first_frame, use_gpu, display, deep_sort):
+
+    # alpha_values = list(np.arange(0.3,0.9,0.1))
+    # beta_values = list(np.arange(0.3,0.9,0.1))
+    # skip_frames_values = list(np.arange(5,50,5))
+    # conf_thresh_values = list(np.arange(0.3,0.9,0.1))
+    # iou_threshold_values = list(np.arange(0.3,0.9,0.1))
+
+    alpha_values = list(np.arange(0.5,0.7,0.1))
+    beta_values = list(np.arange(0.5,0.7,0.1))
+    skip_frames_values = list(np.arange(5,10,5))
+    conf_thresh_values = list(np.arange(0.5,0.7,0.1))
+    iou_threshold_values = list(np.arange(0.3,0.4,0.1))
+
+    deep_sort_values = [False, True]
+    tracker_values = ['kalman', 'IoU']
+
+    columns = ['sequence', 'camera','alpha', 'beta', 'skip_frames', 'conf_thresh', 'iou_threshold', 'deep_sort', 'tracker']
+
+    df = pd.DataFrame(columns=columns)
+    # df.to_csv('grid_search_data.csv', index = False)
+
+
+    for alpha, beta, skip_frames, conf_thresh, iou_threshold, deep_sort, tracker in product(alpha_values, beta_values, skip_frames_values, conf_thresh_values, iou_threshold_values, deep_sort_values, tracker_values):
+        if os.path.exists('grid_search_data.csv'):
+            df = pd.read_csv('grid_search_data.csv')
+
+        grid_search_dict = {
+            'alpha' : alpha,
+            'beta' : beta,
+            'skip_frames' : skip_frames,
+            'conf_thresh' : conf_thresh,
+            'iou_threshold' : iou_threshold,
+            'deep_sort' : deep_sort,
+            'tracker' : tracker
+        }
+
+        path_to_seqs = Path("/home/aszummer/Documents/MCV/M6/mcvm6team3/data/aic19-track1-mtmc-train/train")
+        paths_to_seqs = list(path_to_seqs.iterdir())
+        paths_to_seqs.sort(reverse=True)
+
+        display = False
+
+        for sequences in paths_to_seqs:
+            paths_to_cams = list(sequences.iterdir())
+            print(sequences)
+
+            if sequences.name == 'S03':
+                run_name = 'FasterRCNN_finetune_S01_S04_e2'
+                for cams in tqdm(paths_to_cams):
+                    input_video = str(cams/'vdo.avi')
+                    print(input_video)
+                    summary = task1(architecture_name, input_video, run_name, args, first_frame=0, 
+                    use_gpu=use_gpu, display=display, deep_sort=deep_sort, tracker=tracker, grid_search_dict = grid_search_dict)
+                    
+                    data_dict = grid_search_dict
+                    data_dict['sequence'] = sequences.name
+                    data_dict['camera'] = cams.name
+                    data_dict['run_name'] = run_name
+                    data_dict_summary = dict(zip(summary.columns,summary.values[0]))
+                    data_dict = {**data_dict,**data_dict_summary}
+                    df = df.append(data_dict, ignore_index= True)
+                    df.to_csv('grid_search_data.csv', index = False)
+
+
 
 def parse_arguments():
     parser = ArgumentParser()
@@ -310,8 +382,9 @@ def parse_arguments():
     
 if __name__ == "__main__":
     input_video, architecture_name, display, use_gpu, run_name, deep_sort, tracker, args= parse_arguments()
-    task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort= deep_sort, tracker= tracker)
+    # task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort= deep_sort, tracker= tracker)
     # generate_all_features(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
+    grid_search(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
     
     
 """
