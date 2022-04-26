@@ -264,14 +264,20 @@ def grid_search(architecture_name, input_video, run_name, args, first_frame, use
     # conf_thresh_values = list(np.arange(0.3,0.9,0.1))
     # iou_threshold_values = list(np.arange(0.3,0.9,0.1))
 
-    alpha_values = list(np.arange(0.5,0.7,0.1))
-    beta_values = list(np.arange(0.5,0.7,0.1))
-    skip_frames_values = list(np.arange(5,10,5))
-    conf_thresh_values = list(np.arange(0.5,0.7,0.1))
-    iou_threshold_values = list(np.arange(0.3,0.4,0.1))
+    # alpha_values = list(np.arange(0.5,0.7,0.1))
+    # beta_values = list(np.arange(0.5,0.7,0.1))
+    # skip_frames_values = list(np.arange(5,10,5))
+    # conf_thresh_values = list(np.arange(0.5,0.7,0.1))
+    # iou_threshold_values = list(np.arange(0.3,0.4,0.1))
 
-    deep_sort_values = [False, True]
-    tracker_values = ['kalman', 'IoU']
+    alpha_values = [0.3,0.4,0.7]
+    beta_values = [0.3,0.4,0.7]
+    skip_frames_values = [15,20]
+    conf_thresh_values = [0.4, 0.7, 0.8]
+    iou_threshold_values = [0.2, 0.5]
+
+    deep_sort_values = [True]
+    tracker_values = ['kalman']
 
     columns = ['sequence', 'camera','alpha', 'beta', 'skip_frames', 'conf_thresh', 'iou_threshold', 'deep_sort', 'tracker']
 
@@ -280,8 +286,8 @@ def grid_search(architecture_name, input_video, run_name, args, first_frame, use
 
 
     for alpha, beta, skip_frames, conf_thresh, iou_threshold, deep_sort, tracker in product(alpha_values, beta_values, skip_frames_values, conf_thresh_values, iou_threshold_values, deep_sort_values, tracker_values):
-        if os.path.exists('grid_search_data.csv'):
-            df = pd.read_csv('grid_search_data.csv')
+        if os.path.exists('grid_search_data_3.csv'):
+            df = pd.read_csv('grid_search_data_3.csv')
 
         grid_search_dict = {
             'alpha' : alpha,
@@ -318,7 +324,7 @@ def grid_search(architecture_name, input_video, run_name, args, first_frame, use
                     data_dict_summary = dict(zip(summary.columns,summary.values[0]))
                     data_dict = {**data_dict,**data_dict_summary}
                     df = df.append(data_dict, ignore_index= True)
-                    df.to_csv('grid_search_data.csv', index = False)
+                    df.to_csv('grid_search_data_3.csv', index = False)
 
 
 
@@ -382,9 +388,9 @@ def parse_arguments():
     
 if __name__ == "__main__":
     input_video, architecture_name, display, use_gpu, run_name, deep_sort, tracker, args= parse_arguments()
-    # task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort= deep_sort, tracker= tracker)
+    task1(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort= deep_sort, tracker= tracker)
     # generate_all_features(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
-    grid_search(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
+    # grid_search(architecture_name, input_video, run_name, args, first_frame=0, use_gpu=use_gpu, display=display, deep_sort=deep_sort)
     
     
 """
