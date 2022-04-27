@@ -227,10 +227,16 @@ Then put the network weights "net_last.pth" in `week5/feat_extraction/reID`.
 
 ### Task 2
 
-We have three algorithms to do multi-target multi-camera (MTMC) tracking:
+We have three algorithms to do multi-target multi-camera (MTMC) tracking. To run them, first we should compute the tracklets files with the `task1.py -s PATH_TRACKLETS` script, to ease up computing.
 
-- Use the **online** algorithm and evaluate it:
+- Use the **online** algorithm and evaluate it.
+```
+python mtmc_online.py -s SEQUENCE_PATH -t PATH_TRACKLETS
 
+optional arguments:
+  -i SIM_THR         Similarity threshold
+  -u MIN_IOU         IOU threshold for tracking
+```
 
 - Use the **offline** algorithm that finds the connected components and evaluate it:
 ```
