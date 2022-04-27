@@ -169,10 +169,46 @@ def task2(sequence_path, dets_sequence_path, max_frames_skip, min_iou, sim_thr):
     print(summary[['idf1','idp','idr','precision','recall']])
 
 
-task2(
-    sequence_path="/home/group03/m6/train/S04",
-    dets_sequence_path="/home/group03/m6/tracklets/S04",
-    max_frames_skip=20,
-    min_iou=0.2,
-    sim_thr=0.9)
+def parse_arguments():
+    parser = ArgumentParser()
+    parser.add_argument("-s",
+                        dest="sequence_path",
+                        required=True,
+                        type=str,
+                        help="Path to the sequence folder (containing the videos and cameras)")
+    parser.add_argument("-t",
+                        dest="path_tracklets",
+                        required=True,
+                        type=str,
+                        help="Path to the folder where the generated tracklets are.")
+    parser.add_argument("-m",
+                        dest="max_frames_skip",
+                        required=False,
+                        default=20,
+                        type=int)
+    parser.add_argument("-u",
+                        dest="min_iou",
+                        required=False,
+                        default=20,
+                        type=int)
+    parser.add_argument("-i",
+                        dest="sim_thr",
+                        required=False,
+                        default=0.4,
+                        type=float,
+                        help="Similarity threshold.")
+    args = parser.parse_args()
+    return args.sequence_path, args.path_tracklets, args.max_frames_skip, args.min_iou, args.sim_thr
+    
+
+
+if __name__ == "__main__":
+    sequence_path, path_tracklets, max_frames_skip, min_iou, sim_thr = parse_arguments()
+
+    task2(
+        sequence_path=sequence_path,
+        dets_sequence_path=path_tracklets,
+        max_frames_skip=max_frames_skip,
+        min_iou=min_iou,
+        sim_thr=sim_thr)
 
