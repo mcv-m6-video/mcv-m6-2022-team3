@@ -2,6 +2,17 @@
 
 The goal of this project is to learn the basic concepts and techniques related to video sequences processing, mainly for surveillance applications. Road traffic monitoring and Advanced Driver Assistance Systems (ADAS) are aimed to improve safety, efficiency and comfort at road transportation by means of information technologies.
 
+# Team 3
+
+| Members | Contact |
+| :---         |   :---    | 
+| Sergio Montoya   | sergio.montoyadepaco@e-campus.uab.cat | 
+| Laia Albors    | laia.albors@e-campus.uab.cat  |
+| Ibrar Malik    | ibrar.malik@e-campus.uab.cat  |
+| Adam Szummer | adam.szummer@e-campus.uab.cat |
+
+Project presentation: [Google Slides](https://docs.google.com/presentation/d/1Kaw4ZFY4qFNT922YqpbG1HjQ76cZtwgx9F3WxoYMo3g/edit?usp=sharing)
+
 ## Week 1
 
 The contents of the first week are in the folder `week1`:
