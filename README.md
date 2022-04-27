@@ -212,3 +212,35 @@ optional arguments:
 Then put the network weights "net_last.pth" in `week5/feat_extraction/reID`.
 
 ### Task 1.2
+
+
+### Task 2
+
+We have three algorithms to do multi-target multi-camera (MTMC) tracking:
+
+- Use the **online** algorithm and evaluate it:
+
+
+- Use the **offline** algorithm that finds the connected components and evaluate it:
+```
+usage: python mtmc_v1.py -d DATASET_PATH -s S01 S04 -n ARCHITECTURE_NAME -r RUN_NAME [-g]
+
+optional arguments:
+  -s SEQUENCE           Sequence of videos that we want to use. Options: S01, S03, S04
+  -t PATH_TRACKLETS     Path to the folder where the thacklets are
+  -g PATH_GT            Path to the ground truth files
+  -i SIM_THR            Similarity threshold
+  -a PATH_SAVE          Path to the folder where to save the detections with the new IDs
+```
+
+- Use the **offline** algorithm that uses our version of the connected components algorithm and evaluate it:
+```
+usage: python mtmc_v2.py -d DATASET_PATH -s S01 S04 -n ARCHITECTURE_NAME -r RUN_NAME [-g]
+
+optional arguments:
+  -s SEQUENCE           Sequence of videos that we want to use. Options: S01, S03, S04
+  -t PATH_TRACKLETS     Path to the folder where the thacklets are
+  -g PATH_GT            Path to the ground truth files
+  -i SIM_THR            Similarity threshold
+  -a PATH_SAVE          Path to the folder where to save the detections with the new IDs
+```
