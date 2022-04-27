@@ -29,6 +29,7 @@ from models import load_model
 from sort import Sort, DeepSORT
 from sort import convert_x_to_bbox
 import motmetrics as mm
+from visual_features import ReIDNetwork
 
 WAIT_TIME = 1
 SAVE = False
@@ -104,6 +105,8 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     
     ret = True
     frame_number = first_frame
+    reid_model = ReIDNetwork()
+    detections = []
     
     ret, img = cap.read()
     
@@ -184,6 +187,16 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
                         path_to_res_folder = os.path.join(model_folder_files, RESULTS_FILENAME, track_exp_name)
                         os.makedirs(path_to_res_folder,exist_ok=True)
                         cv2.imwrite(path_to_res_folder+'/image_'+str(frame_number-first_frame).zfill(4)+'.jpg', cv2.resize(img_draw, tuple(np.int0(0.5*np.array(img_draw.shape[:2][::-1])))))
+                
+                if args.save_file:
+                    bboxes = [det[:4] for det in dets]
+                    for det in dets:
+                        det = det.astype(np.int)
+                        x1,y1,x2,y2,_ = det
+                        car_patch = img[max(0,y1):min(y2,img.shape[0]), max(0,x1):min(x2,img.shape[1])]
+                        #car_patch = img[y1:y2, x1:x2]
+                        feature_vector = reid_model.extract_features(car_patch)
+                        detections.append([frame_number, det[4], *det[:4], *feature_vector.squeeze().tolist()])
 
                 frame_number += 1
                 ret, img = cap.read()
@@ -210,6 +223,8 @@ def task1(architecture_name, video_path, run_name, args, first_frame=0, use_gpu=
     mh = mm.metrics.create()
     summary = mh.compute(acc, metrics=mm.metrics.motchallenge_metrics, name='acc')
     print(summary)
+
+    np.save(args.save_file, np.array(detections))
 
     cv2.destroyAllWindows()
 
@@ -277,6 +292,10 @@ def parse_arguments():
                         required=True,
                         type=str,
                         help="Run name of finetuned car detector experiment")
+    parser.add_argument("-s",
+                        dest="save_file",
+                        type=str,
+                        default=None)
     
     # Tracking parameters
     parser.add_argument("-det_thr",
