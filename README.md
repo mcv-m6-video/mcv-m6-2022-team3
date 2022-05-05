@@ -12,6 +12,7 @@ The goal of this project is to learn the basic concepts and techniques related t
 | Adam Szummer | adam.szummer@e-campus.uab.cat |
 
 Project presentation: [Google Slides](https://docs.google.com/presentation/d/1Kaw4ZFY4qFNT922YqpbG1HjQ76cZtwgx9F3WxoYMo3g/edit?usp=sharing)
+Report: [Overleaf](https://www.overleaf.com/read/rbmmvdswtdgc)
 
 ## Week 1
 
